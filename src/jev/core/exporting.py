@@ -93,6 +93,7 @@ class DecisionResult(BaseModel):
 TEMPLATE_JSON = __TEMPLATE_JSON__
 DESIGN = ExportedDesign.model_validate_json(TEMPLATE_JSON)
 _STATE = TypeAdapter[JSONContent](JSONContent)
+_PROBABILITY_ROUNDING_ALLOWANCE = 0.015
 
 
 def _state(state: JSONContent) -> JSONContent:
@@ -127,7 +128,7 @@ def _verify(response: SystemOneResponse) -> None:
                 or not 0 <= answer.confidence <= 1
                 or not values
                 or any(not math.isfinite(x) or not 0 <= x <= 1 for x in values)
-                or not math.isclose(sum(values), 1, abs_tol=0.015)
+                or not math.isclose(sum(values), 1, abs_tol=_PROBABILITY_ROUNDING_ALLOWANCE)
             ):
                 invalid()
             if isinstance(question, Choice) and isinstance(answer, ChoiceAnswer):
@@ -146,6 +147,22 @@ def _verify(response: SystemOneResponse) -> None:
                     or not 0 <= answer.score <= len(question.criteria) - 1
                 ):
                     invalid()
+                expected_score = math.fsum(
+                    level * probability for level, probability in answer.probabilities.items()
+                )
+                # Local defensive rounding allowance, scaled to the level range;
+                # TypeSafe defines the weighted mean but does not specify precision.
+                if not math.isclose(
+                    answer.score,
+                    expected_score,
+                    rel_tol=0,
+                    abs_tol=_PROBABILITY_ROUNDING_ALLOWANCE * (len(question.criteria) - 1),
+                ):
+                    raise ValueError(
+                        f"TypeSafe returned an inconsistent score for {name}: "
+                        f"{answer.score:g} contradicts its probability-weighted mean "
+                        f"{expected_score:g}. Do not use this result as a decision."
+                    )
     for count in (response.usage.input_tokens, response.usage.output_tokens):
         if count is not None and count < 0:
             invalid()

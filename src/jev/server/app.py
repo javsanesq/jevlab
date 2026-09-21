@@ -21,11 +21,12 @@ from typesafe_sdk import JSONContent
 
 from jev import __version__
 from jev.core.client import Evaluator
+from jev.core.diagnostics import redact_text
 from jev.core.errors import JevError
 from jev.core.models import StrictModel
 from jev.core.pricing import price
 from jev.core.service import Workbench, parse_state
-from jev.core.templates import context_estimate
+from jev.core.templates import context_estimate, validation_message
 
 MAX_BODY_BYTES = 2_000_000
 BODY_READ_TIMEOUT_SECONDS = 10.0
@@ -71,6 +72,10 @@ def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
             raise ValueError("Duplicate JSON keys")
         result[key] = value
     return result
+
+
+def reject_nonfinite(_value: str) -> None:
+    raise ValueError("JSON numbers must be finite; NaN and infinity are not supported.")
 
 
 class LocalAPI:
@@ -166,8 +171,13 @@ class LocalAPI:
         try:
             if len(request.headers.getlist("content-length")) > 1:
                 raise ValueError("Duplicate Content-Length headers")
-            size = int(request.headers.get("content-length", "0"))
-            if size < 0 or size > MAX_BODY_BYTES:
+            try:
+                size = int(request.headers.get("content-length", "0"))
+            except ValueError:
+                raise ValueError("Content-Length must be a non-negative whole number.") from None
+            if size < 0:
+                raise ValueError("Content-Length must be a non-negative whole number.")
+            if size > MAX_BODY_BYTES:
                 return failure(
                     "body_too_large", "Request body exceeds 2 MB.", "Trim the state.", 413
                 )
@@ -179,14 +189,45 @@ class LocalAPI:
                             "body_too_large", "Request body exceeds 2 MB.", "Trim the state.", 413
                         )
                     body.extend(chunk)
-            payload = RunRequest.model_validate(json.loads(body, object_pairs_hook=unique_object))
+            payload = RunRequest.model_validate(
+                json.loads(body, object_pairs_hook=unique_object, parse_constant=reject_nonfinite)
+            )
             state = parse_state(json.dumps(payload.state, allow_nan=False), "json")
             template = self.wb.templates.load(request.path_params["name"])
-        except (ValueError, ValidationError, UnicodeError, RecursionError):
+        except UnicodeError:
             return failure(
                 "invalid_request",
-                "Invalid JSON request or state.",
-                "Send {state: text/object/array, authorize_cost?: boolean} with unique keys.",
+                "The request body is not valid Unicode JSON text.",
+                "Encode the JSON body as UTF-8 before sending it.",
+                422,
+            )
+        except RecursionError:
+            return failure(
+                "invalid_request",
+                "The JSON request is nested too deeply.",
+                "Reduce nested objects and arrays in the state before sending it again.",
+                422,
+            )
+        except ValidationError as error:
+            return failure(
+                "invalid_request",
+                redact_text(validation_message(error), (self.token,)),
+                "Provide state as nonempty text or a JSON object/array. Use only state and "
+                "optional authorize_cost; authorize_cost must be true or false without quotes.",
+                422,
+            )
+        except ValueError as error:
+            message = redact_text(validation_message(error), (self.token,))
+            fix = (
+                "Send one Content-Length header containing the non-negative body size in bytes."
+                if "Content-Length" in message
+                else "Correct the JSON syntax, use unique object keys, and replace NaN or "
+                "infinity with a finite value. No Jev call was started."
+            )
+            return failure(
+                "invalid_request",
+                message,
+                fix,
                 422,
             )
         except ClientDisconnect:

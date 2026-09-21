@@ -1024,6 +1024,10 @@ class SettingsScreen(WorkbenchScreen):
                 credentials = cast(dict[str, dict[str, object]], report["credentials"])
                 lines = ["Local check finished. No online request was made."]
                 for provider, status in credentials.items():
+                    if isinstance(error := status.get("error"), dict):
+                        lines.append(f"{provider.title()} key: could not check.")
+                        lines.append(human_error(JevError.from_dict(error)))
+                        continue
                     lines.append(
                         f"{provider.title()} key: found in {status['source']}"
                         if status["present"]

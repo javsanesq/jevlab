@@ -2,6 +2,34 @@
 
 Versions describe the workbench application, not TypeSafe's model versions.
 
+## 0.7.1 — 2026-09-21
+
+Status: complete.
+
+- Reject dataset changes during batch/eval preparation before dispatch; save
+  initialization failures and preserve checkpoints for a safe resume.
+- Bound Jev, comparison and diagnostic credential lookup and event-loop shutdown.
+  Keychain timeouts explain
+  that no API request was sent; online doctor respects configured request limits.
+- Preserve unsaved editor drafts when JSON/YAML nesting is excessive. Local file
+  failures, coach HTTP errors, and local server validation now retain useful reasons.
+- Reject Score values that contradict their distribution, in the workbench and
+  exported modules, with a conservative local rounding allowance.
+- Add behavioral regressions and an import-boundary check; update the guide's
+  troubleshooting and installation examples. Keep the command and data paths
+  unchanged until the separately reviewed rename phase.
+
+Verification: `make lint` passed (Ruff, formatting, Pyright); `make test` passed
+with **682 offline tests** and one explicitly skipped live test. The installed
+editable command and a separate Python 3.12 wheel installation passed from
+outside the checkout, including the key-free demo, guide, diagnostics, JSON
+contracts, and specific local-file failures. The guide is included exactly in
+both distribution formats. Locked runtime/coach and development dependency
+advisory scans reported no known vulnerabilities; installed dependencies passed
+their compatibility check. Current source, all reachable/reflog history, and
+distribution contents passed the privacy check; credential-pattern matches were
+synthetic fixtures. **No live TypeSafe or coach calls were made.**
+
 ## 0.7.0 — 2026-09-21
 
 Status: complete.

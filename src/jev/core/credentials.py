@@ -1,7 +1,11 @@
 """macOS Keychain, with environment fallback. Never use a plaintext backend."""
 
+import asyncio
 import os
 import sys
+from queue import Empty, Queue
+from threading import Event, Thread
+from time import monotonic
 from typing import Literal, Protocol, cast
 
 from jev.core.errors import JevError
@@ -78,9 +82,116 @@ class Credentials:
                 3,
             ) from None
 
-    def status(self) -> dict[str, object]:
+    def status(self, *, timeout_seconds: float = 5.0) -> dict[str, object]:
+        """Check all sources within one deadline, without passing keys between threads."""
         result: dict[str, object] = {}
+        completed: Queue[tuple[Provider, bool, str]] = Queue()
+        cancelled = Event()
+        deadline = monotonic() + timeout_seconds
+
+        def retrieve() -> None:
+            for provider in ENV_KEYS:
+                if cancelled.is_set():
+                    return
+                try:
+                    value, source = self.resolve(provider)
+                    present = bool(value)
+                    del value
+                except Exception:
+                    present, source = False, "unavailable"
+                if cancelled.is_set():
+                    return
+                completed.put((provider, present, source))
+
+        Thread(target=retrieve, name="jev-keychain-status", daemon=True).start()
+        try:
+            while len(result) < len(ENV_KEYS):
+                try:
+                    provider, present, source = completed.get(
+                        timeout=max(0.0, deadline - monotonic())
+                    )
+                except Empty:
+                    break
+                status: dict[str, object] = {"present": present, "source": source}
+                if source == "unavailable":
+                    status["error"] = JevError(
+                        "keychain_unavailable",
+                        f"The {provider} API key could not be checked in Keychain.",
+                        "Unlock your login Keychain and allow access, or use "
+                        f"{ENV_KEYS[provider]} with credential_mode=environment.",
+                        3,
+                    ).as_dict()
+                result[provider] = status
+        finally:
+            cancelled.set()
         for provider in ENV_KEYS:
-            value, source = self.resolve(provider)
-            result[provider] = {"present": bool(value), "source": source}
+            if provider not in result:
+                result[provider] = {
+                    "present": False,
+                    "source": "unavailable",
+                    "error": JevError(
+                        "credential_timeout",
+                        f"Checking the {provider} API key did not finish before the "
+                        "diagnostic deadline; whether a key is present is unknown.",
+                        "Unlock your login Keychain and allow access, or use "
+                        f"{ENV_KEYS[provider]} with credential_mode=environment.",
+                        3,
+                    ).as_dict(),
+                }
         return result
+
+
+async def resolve_credentials(
+    credentials: Credentials, provider: Provider
+) -> tuple[str | None, str]:
+    """Keep native Keychain prompts out of the event loop and its shutdown executor.
+
+    Native calls cannot be cancelled. A daemon worker discards a late result after
+    cancellation, without printing exceptions or retaining a pending async task.
+    """
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future[tuple[str | None, str]] = loop.create_future()
+
+    def deliver(result: tuple[str | None, str] | Exception) -> None:
+        if future.done():
+            return
+        if isinstance(result, Exception):
+            future.set_exception(result)
+        else:
+            future.set_result(result)
+
+    def retrieve() -> None:
+        try:
+            result: tuple[str | None, str] | Exception = credentials.resolve(provider)
+        except Exception as error:
+            result = error
+        try:
+            loop.call_soon_threadsafe(deliver, result)
+        except RuntimeError:
+            pass  # Cancellation may already have closed the caller's event loop.
+
+    Thread(target=retrieve, name="jev-keychain", daemon=True).start()
+    return await future
+
+
+async def require_credentials(credentials: Credentials, *, timeout_seconds: float) -> str:
+    """Bound TypeSafe credential lookup separately from a potentially billable call."""
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            key, _ = await resolve_credentials(credentials, "typesafe")
+    except TimeoutError:
+        raise JevError(
+            "credential_timeout",
+            "Reading the TypeSafe API key timed out. No API request was sent.",
+            "Unlock your login Keychain and allow access, then retry. "
+            "For unattended runs, use TYPESAFE_API_KEY with credential_mode=environment.",
+            3,
+        ) from None
+    if not key:
+        raise JevError(
+            "missing_key",
+            "No typesafe API key is available.",
+            "Run jev config or set TYPESAFE_API_KEY in your environment.",
+            3,
+        )
+    return key

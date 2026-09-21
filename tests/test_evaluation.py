@@ -233,12 +233,12 @@ def test_score_nearest_probability_is_not_argmax_or_confidence(design: Template)
 
     body = copy.deepcopy(RESPONSE)
     body["answers"]["impact"].update(
-        score=1.5, confidence=0.91, probabilities={"0": 0.4, "1": 0.3, "2": 0.3}
+        score=0.9, confidence=0.91, probabilities={"0": 0.4, "1": 0.3, "2": 0.3}
     )
-    report = evaluate_runs(design, [(row(0, {**LABELS, "impact": 2}), run(0, body))])
+    report = evaluate_runs(design, [(row(0, {**LABELS, "impact": 1}), run(0, body))])
     metrics = report.per_question["impact"]
-    assert metrics.accuracy == 1 and metrics.mean_absolute_error == 0.5
-    assert metrics.observations[0].predicted == 2
+    assert metrics.accuracy == 1 and metrics.mean_absolute_error == pytest.approx(0.1)
+    assert metrics.observations[0].predicted == 1
     assert metrics.observations[0].probability == 0.3
     assert metrics.calibration[3].count == 1 and metrics.confidence_calibration[9].count == 1
     assert metrics.brier_score == pytest.approx(0.74)

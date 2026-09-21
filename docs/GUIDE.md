@@ -1,6 +1,6 @@
 # The beginner's guide to jev
 
-For macOS · English · jev 0.7.0
+For macOS · English · jev 0.7.1
 
 The public repository is named **jevlab**. This release still launches with
 `jev` and keeps personal files in `~/.jev/`; the command and data-folder rename
@@ -269,7 +269,7 @@ that this tool needs. uv keeps them in a separate environment for `jev`.
    **You should see:**
 
    ```text
-   jev 0.7.0
+   jev 0.7.1
    ```
 
    A later release may show a higher number. If the command is not found, see
@@ -994,6 +994,7 @@ Older saved failures may not contain details that earlier versions discarded.
 | `command not found: uv` | uv is absent or not on PATH. The installer steps in section 4 show how to add it and check its version. |
 | `cd: no such file or directory` | The source folder is not at `~/jevlab`. Section 4's source-folder steps show where to put it. A successful `cd ~/jevlab` then returns a prompt without an error. Older installations may still be at `~/jev`. |
 | A key is missing | **1.** Run `jev tour`. You should see the welcome screen. The numbered key-setup steps in section 5 lead to the hidden field. A coach key cannot replace a TypeSafe key. An error report must never contain a key. |
+| Reading the API key timed out | The app could not finish reading Keychain before its time limit. No Jev request was sent. **1.** Unlock your login Keychain and allow the access prompt. You should be able to try the run again. |
 | A key is rejected | A stored key can be expired, incomplete, or for the wrong provider. Section 2's numbered steps explain how to obtain a TypeSafe key; section 5 explains saving it. A later live request checks whether the replacement works. Single runs start without a price prompt. |
 | `Unknown model: jev` | `jev` is the model family, not an API model identifier. **1.** Change the template's Model field to `jev-latest`. You should see the validation message clear. The same rule applies to the default model in Settings. |
 | Billing, quota, or account-access error | The provider declined this account or model. **1.** Open that provider's account dashboard. You should see its balance, access, or billing controls and any required account steps. Repeating the same request will not repair billing. |
@@ -1007,6 +1008,9 @@ Older saved failures may not contain details that earlier versions discarded.
 | Ctrl+A did not select my text | It moves to the start of a line. **1.** Press Ctrl+Shift+A in a one-line field, or F7 in a multi-line box. You should see the whole field selected. Some Macs require Fn+F7. |
 | `my-message-sorter` already exists | The earlier exercise already saved it. **1.** Run `jev templates edit my-message-sorter`. You should see that saved template; nothing is overwritten without editing and saving it. |
 | Export says the file exists | The tool protects the existing file. **1.** Run the export command with a different output filename. You should see a new exported-file message. The earlier file remains intact. |
+| Dataset changed while preparing a job | The input file changed after its price and contents were checked. No request from that preparation was sent. **1.** Restore the original file before resuming. You should see the job accept its original cases; changed cases need a new job and price check. |
+| JSON or YAML is too deeply nested | The text has too many lists or objects inside one another. Your draft stays in the editor. **1.** Remove unnecessary nesting from the named field. You should see its validation message clear once the structure is readable. |
+| Score contradicts its probability-weighted mean | The provider returned contradictory numbers, so the app did not accept an automated answer. **1.** Press F2 on the error. You should see safe technical details and a request ID, when available, to report to TypeSafe. |
 | Result differs from the picture | Pictures use recorded teaching values. A live answer can differ. **1.** Open the saved result from history using section 9's steps. You should see its actual answer bars and saved details rather than the recording. |
 | A price is unknown | The app cannot verify that model's price or usage. It is not free. In a batch, eval, or coach price prompt, **1.** Choose **Cancel this request** to avoid starting it. You should return with no new request sent. A single run starts immediately; an unknown cost afterward cannot undo that request. |
 | Browser guide does not open | **1.** Run `jev guide`. You should see the terminal version. A reported local HTML path is another way to reach the page; HTML is the file format browsers display. |

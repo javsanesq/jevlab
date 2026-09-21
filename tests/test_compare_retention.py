@@ -114,18 +114,18 @@ async def test_credentials_resolve_once_before_pair_timers_start(
     lookups = 0
     evaluator = MockEvaluator()
 
-    def require(*args: object) -> str:
+    def resolve(*args: object) -> tuple[str, str]:
         nonlocal lookups
         lookups += 1
         assert wb.storage.history() == []
-        return "offline-comparison-key"
+        return "offline-comparison-key", "environment"
 
     def sdk_client(key: str, settings: Settings) -> Evaluator:
         assert key == "offline-comparison-key"
         assert len(wb.storage.history()) == 2
         return evaluator
 
-    monkeypatch.setattr("jev.core.compare.Credentials.require", require)
+    monkeypatch.setattr("jev.core.compare.Credentials.resolve", resolve)
     monkeypatch.setattr("jev.core.compare.SDKClient", sdk_client)
     report = await compare(wb, design, fork_template(design, "variant"), "ticket")
     assert lookups == 1 and report.status == "completed" and len(evaluator.requests) == 2

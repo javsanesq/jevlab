@@ -175,3 +175,16 @@ evidence, and [RELEASING.md](RELEASING.md) for future publication criteria.
 The owner has selected MIT for the release-readiness phase, superseding D64's
 earlier lack of a license choice. See [FOLLOWUP_PHASE2.md](FOLLOWUP_PHASE2.md)
 for this checkpoint's verification and remaining scope.
+
+## Jevlab follow-up, Phase 3 — audit fixes (2026-09-21)
+
+The audit was reported briefly in the conversation before edits. This phase fixes
+confirmed reliability issues; command migration and release packaging policy stay
+in their separately reviewed phases.
+
+| ID | Decision | Reason |
+| --- | --- | --- |
+| D76 | Verify the approved dataset fingerprint after preparation, before saving new row checkpoints or starting workers. Include preparation in durable job finalization. | A file changed during preparation previously reached inference before rejection, and early errors could leave jobs marked running indefinitely. Preserve original checkpoints so restoring the source permits a safe resume. |
+| D77 | Share the coach's cancellable native credential bridge in core; include lookup in the ordinary run deadline and cap it at five seconds. Bound comparison lookup and synchronous diagnostic inventory too. Apply configured deadlines and retries to online TypeSafe diagnostics. | A native Keychain prompt must not block event-loop shutdown or be reported as a provider timeout. Distinguish a lookup failure with no dispatched request from uncertain remote completion. Comparison lookup and doctor's preliminary inventory have separate bounded waits before inference/model-list deadlines. |
+| D78 | Reject grossly contradictory Score values in both workbench and standalone exports, while allowing a conservative rounding budget based on the existing probability-sum tolerance. | The documented Score is the probability-weighted level mean. The local tolerance is a defensive compatibility choice, not a provider precision guarantee; never synthesize a replacement decision. |
+| D79 | Bound editable JSON/YAML nesting to 64 containers locally; preserve drafts and show field errors. Retain safe local error classes and coach/server diagnostic metadata. | Invalid user input must not exit the editor. The nesting bound protects local parsers, not a claimed TypeSafe limit. Known causes and request identifiers must survive interface boundaries without revealing credentials or arbitrary exception text. |

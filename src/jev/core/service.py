@@ -13,7 +13,7 @@ from typesafe_sdk import __version__ as sdk_version
 
 from jev.core.client import Evaluator, SDKClient, raw_error_body, translate_error, verify_response
 from jev.core.config import load_settings
-from jev.core.credentials import Credentials
+from jev.core.credentials import Credentials, require_credentials
 from jev.core.errors import JevError
 from jev.core.models import Run, Settings, Template
 from jev.core.pricing import price
@@ -95,12 +95,15 @@ class Workbench:
         self.storage.create_run(run, template)
         started: float | None = None
         try:
+            deadline = asyncio.get_running_loop().time() + self.settings.deadline_seconds
             if evaluator is None:
                 credentials = Credentials(self.settings.credential_mode)
-                key = await asyncio.to_thread(credentials.require)
+                key = await require_credentials(
+                    credentials, timeout_seconds=min(5.0, self.settings.deadline_seconds)
+                )
                 evaluator = SDKClient(key, self.settings)
             started = perf_counter()
-            async with asyncio.timeout(self.settings.deadline_seconds):
+            async with asyncio.timeout_at(deadline):
                 evaluation = await evaluator.evaluate(template, state)
             response = evaluation.response
             run.response = evaluation.raw
@@ -122,7 +125,11 @@ class Workbench:
             run.status = "interrupted"
             run.error = {
                 "code": "interrupted",
-                "message": "Cancelled locally; remote completion and billing may be unknown.",
+                "message": (
+                    "Cancelled locally; remote completion and billing may be unknown."
+                    if started is not None
+                    else "Cancelled while reading credentials. No API request was sent."
+                ),
             }
             raise
         except Exception as error:

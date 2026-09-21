@@ -35,7 +35,7 @@ data folder is still `~/.jev/`. Keep an existing installation's source folder.
    jev --version
    ```
 
-   **You should see:** `jev 0.7.0`, or a later version.
+   **You should see:** `jev 0.7.1`, or a later version.
 
 4. Run:
 

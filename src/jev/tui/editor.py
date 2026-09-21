@@ -18,6 +18,7 @@ from jev.core.service import Workbench
 from jev.core.templates import (
     dump_template,
     fork_template,
+    load_json,
     load_yaml,
     parse_template,
     validation_message,
@@ -303,7 +304,7 @@ class QuestionEditor(ModalScreen[tuple[str, QuestionSpec] | None]):
 
     def build_question(self) -> tuple[str, QuestionSpec]:
         text = self.query_one("#instructions", TextArea).text.strip()
-        instructions = json.loads(text) if text.startswith(("{", "[")) else text
+        instructions = load_json(text) if text.startswith(("{", "[")) else text
         question = TypeAdapter(QuestionSpec).validate_python(
             {"type": self.kind, "instructions": instructions, "criteria": self.criteria_value()}
         )
@@ -342,8 +343,8 @@ class QuestionEditor(ModalScreen[tuple[str, QuestionSpec] | None]):
         text = self.query_one("#instructions", TextArea).text.strip()
         if text.startswith(("{", "[")):
             try:
-                json.loads(text)
-            except json.JSONDecodeError as error:
+                load_json(text)
+            except ValueError as error:
                 instruction_field.set_error(
                     validation_message(error)
                     + " Repair the JSON, or write the question as plain text."
@@ -580,11 +581,15 @@ class TemplateEditor(WorkbenchScreen):
             valid = field.validate() and valid
         try:
             if self.query_one("#state-format", Select).value == "json":
-                json.loads(self.query_one("#state-example", TextArea).text or "null")
-        except json.JSONDecodeError as error:
+                load_json(self.query_one("#state-example", TextArea).text or "null")
+        except ValueError as error:
             example_field.set_error(
-                f"Invalid JSON at line {error.lineno}, column {error.colno}: {error.msg}. "
-                "Use double quotes around field names and text, or choose Text."
+                validation_message(error)
+                + (
+                    " Use double quotes around field names and text, or choose Text."
+                    if isinstance(error, json.JSONDecodeError)
+                    else ""
+                )
             )
         try:
             load_yaml(self.query_one("#thresholds", TextArea).text)
@@ -619,7 +624,7 @@ class TemplateEditor(WorkbenchScreen):
                     "example": (
                         self.query_one("#state-example", TextArea).text or None
                         if self.query_one("#state-format", Select).value == "text"
-                        else json.loads(self.query_one("#state-example", TextArea).text or "null")
+                        else load_json(self.query_one("#state-example", TextArea).text or "null")
                     ),
                 },
                 "questions": {k: q.model_dump(mode="json") for k, q in self.questions.items()},

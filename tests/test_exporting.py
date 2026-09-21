@@ -10,13 +10,14 @@ from typing import Any
 
 import httpx2
 import pytest
-from conftest import RESPONSE
+from conftest import RESPONSE, MockEvaluator
 from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score, TypeSafeClient
 
 from jev.core.client import verify_response
 from jev.core.errors import JevError
 from jev.core.exporting import ExportLanguage, export_template, write_export
 from jev.core.models import ConfidenceGate, NoulGate, Template
+from jev.core.service import Workbench
 from jev.core.thresholds import route
 
 
@@ -169,6 +170,57 @@ def test_bad_response_never_produces_automation(
         body["usage"]["input_tokens"] = -1
     with pytest.raises(ValueError, match="inconsistent"):
         module.evaluate("ticket", transport=sdk_transport(body, []), max_retries=0)
+
+
+@pytest.mark.parametrize("levels", [2, 3, 10])
+@pytest.mark.parametrize("difference,accepted", [(0.014, True), (0.016, False), (0.5, False)])
+async def test_score_consistency_matches_core_and_both_export_entrypoints(
+    wb: Workbench,
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    levels: int,
+    difference: float,
+    accepted: bool,
+) -> None:
+    """Accept small rounding differences; contradictory Scores never reach routing."""
+    design.questions["impact"] = Score(
+        instructions="Rate impact.", criteria=[f"Level {index}" for index in range(levels)]
+    )
+    design.thresholds["impact"] = ConfidenceGate(automate_at_or_above=0.5)
+    body = copy.deepcopy(RESPONSE)
+    score = (0.5 + difference) * (levels - 1)
+    body["answers"]["impact"].update(
+        score=score,
+        confidence=1.0,
+        probabilities={
+            str(index): 0.5 if index in (0, levels - 1) else 0.0 for index in range(levels)
+        },
+        legend={str(index): f"Level {index}" for index in range(levels)},
+    )
+    monkeypatch.setenv("TYPESAFE_API_KEY", "offline-export-secret")
+    module = load_export(tmp_path, monkeypatch, design)
+    if accepted:
+        saved = await wb.run(design, "ticket", evaluator=MockEvaluator(body))
+        sync = module.evaluate("ticket", transport=sdk_transport(body, []), max_retries=0)
+        asynchronous = await module.aevaluate(
+            "ticket", transport=sdk_transport(body, []), max_retries=0
+        )
+        assert saved.routing is not None
+        saved_gate = saved.routing["impact"]
+        assert isinstance(saved_gate, dict) and saved_gate["value"] == score
+        for result in (sync, asynchronous):
+            assert result.routing["impact"].disposition == "automate"
+            assert result.routing["impact"].value == score  # Never replace the provider's Score.
+    else:
+        with pytest.raises(JevError, match="contradicts the probability-weighted mean") as caught:
+            await wb.run(design, "ticket", evaluator=MockEvaluator(body))
+        saved = wb.storage.get(caught.value.run_id or "")
+        assert saved.status == "failed" and not saved.routing
+        with pytest.raises(ValueError, match="inconsistent score for impact"):
+            module.evaluate("ticket", transport=sdk_transport(body, []), max_retries=0)
+        with pytest.raises(ValueError, match="inconsistent score for impact"):
+            await module.aevaluate("ticket", transport=sdk_transport(body, []), max_retries=0)
 
 
 def _inject_offline_transport(

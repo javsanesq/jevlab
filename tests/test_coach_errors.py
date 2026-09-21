@@ -18,6 +18,7 @@ from jev.core.credentials import SERVICE, Credentials, Provider
 from jev.core.errors import JevError
 from jev.core.models import Settings, Template
 from jev.core.service import Workbench
+from jev.presentation import human_error
 
 
 @pytest.mark.parametrize("provider", ["openai", "anthropic"])
@@ -75,6 +76,36 @@ async def test_real_sdk_failures_are_specific_and_preserve_safe_provider_message
     error = caught.value
     assert error.code == code and error.retryable is retryable and error.exit_code == 4
     assert message in error.message and action in error.fix and calls == 1
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+async def test_http_status_and_redacted_request_id_survive_every_coach_boundary(
+    provider: Literal["openai", "anthropic"],
+    design: Template,
+) -> None:
+    secret = "offline-synthetic-audit-key"
+    request_id = f"req-{secret}"
+    advisor = ProviderAdvisor(
+        secret,
+        coach_settings(provider),
+        transport=httpx2.MockTransport(
+            lambda request: httpx2.Response(
+                401,
+                headers={"x-request-id": request_id, "request-id": request_id},
+                json={"error": {"type": "authentication_error", "message": f"Revoked {secret}."}},
+            )
+        ),
+        max_retries=0,
+    )
+    with pytest.raises(JevError) as caught:
+        await Coach(coach_settings(provider), advisor=advisor).critique(design)
+    error = caught.value
+    assert error.http_status == 401
+    assert error.request_id == "req-[redacted]"
+    assert error.provider_code == "authentication_error"
+    rendered = human_error(error, verbose=True)
+    assert "401" in rendered and "req-[redacted]" in rendered
+    assert secret not in rendered + json.dumps(error.as_dict())
 
 
 @pytest.mark.parametrize("provider", ["openai", "anthropic"])

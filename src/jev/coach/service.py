@@ -5,7 +5,6 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from threading import Thread
 from time import perf_counter
 from typing import Literal, Protocol, cast
 
@@ -15,7 +14,7 @@ from pydantic import Field
 from jev.coach.errors import coach_error, redact_json_text, sanitize_text
 from jev.core.client import suppress_wire_logs
 from jev.core.content import Lesson
-from jev.core.credentials import ENV_KEYS, Credentials, Provider
+from jev.core.credentials import ENV_KEYS, Credentials, Provider, resolve_credentials
 from jev.core.errors import JevError
 from jev.core.learning import GradeReport
 from jev.core.models import Run, Settings, StrictModel, Template
@@ -310,39 +309,6 @@ def incomplete(provider: str, reason: str, detail: str = "") -> JevError:
     if detail:
         message += f" Provider message: {detail}"
     return JevError(code, message, fix, 4, retryable)
-
-
-async def resolve_credentials(
-    credentials: Credentials, provider: Provider
-) -> tuple[str | None, str]:
-    """Read Keychain without making cancellation wait for a blocked native prompt.
-
-    A timed-out native operation cannot be stopped by Python. Its daemon worker
-    never renders exceptions and discards its result after the caller cancels.
-    """
-    loop = asyncio.get_running_loop()
-    future: asyncio.Future[tuple[str | None, str]] = loop.create_future()
-
-    def deliver(result: tuple[str | None, str] | Exception) -> None:
-        if future.done():
-            return
-        if isinstance(result, Exception):
-            future.set_exception(result)
-        else:
-            future.set_result(result)
-
-    def retrieve() -> None:
-        try:
-            result: tuple[str | None, str] | Exception = credentials.resolve(provider)
-        except Exception as error:
-            result = error
-        try:
-            loop.call_soon_threadsafe(deliver, result)
-        except RuntimeError:
-            pass  # The caller's event loop has closed after cancellation.
-
-    Thread(target=retrieve, name="jev-coach-keychain", daemon=True).start()
-    return await future
 
 
 class Coach:

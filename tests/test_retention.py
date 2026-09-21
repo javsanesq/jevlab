@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -280,7 +281,7 @@ def test_maintenance_skips_nonblocking_while_database_operation_active(
 
 def test_sqlite_external_writer_skips_without_deletion(wb: Workbench, design: Template) -> None:
     add_run(wb, design, "expired")
-    with sqlite3.connect(wb.storage.path) as external:
+    with closing(sqlite3.connect(wb.storage.path)) as external, external:
         external.execute("BEGIN IMMEDIATE")
         result = cleanup(wb.storage, wb.settings, dry_run=False, at=AT)
         external.rollback()
@@ -309,7 +310,7 @@ def test_migration_four_preserves_learning_aggregates_and_allows_pruned_last_att
 ) -> None:
     add_run(wb, design, "old")
     add_attempt(wb, "old-attempt", ["old"])
-    with sqlite3.connect(wb.storage.path) as connection:
+    with closing(sqlite3.connect(wb.storage.path)) as connection, connection:
         connection.executescript("""
             ALTER TABLE learn_progress RENAME TO new_progress;
             CREATE TABLE learn_progress (
@@ -336,7 +337,7 @@ def test_migration_four_preserves_learning_aggregates_and_allows_pruned_last_att
 
 
 def test_wal_counts_toward_footprint_and_is_reclaimed(wb: Workbench, design: Template) -> None:
-    with sqlite3.connect(wb.storage.path) as external:
+    with closing(sqlite3.connect(wb.storage.path)) as external, external:
         external.execute("PRAGMA journal_mode=WAL")
         add_run(wb, design, "expired", size=1_500_000)
         external.execute("PRAGMA wal_autocheckpoint=0")
@@ -360,7 +361,7 @@ def test_obsolete_wal_frames_compact_without_pruning_recent_runs(
     design: Template,
 ) -> None:
     add_run(wb, design, "keep", days_ago=1, size=100_000)
-    with sqlite3.connect(wb.storage.path) as external:
+    with closing(sqlite3.connect(wb.storage.path)) as external, external:
         external.execute("PRAGMA journal_mode=WAL")
         external.execute("PRAGMA wal_autocheckpoint=0")
         for index in range(12):

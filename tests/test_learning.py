@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import httpx2
@@ -177,7 +178,7 @@ async def test_v1_migration_preserves_history(wb: Workbench) -> None:
         {"ticket": {"message": "Synthetic test"}},
         evaluator=LabeledEvaluator(item.cases),
     )
-    with sqlite3.connect(wb.storage.path) as connection:
+    with closing(sqlite3.connect(wb.storage.path)) as connection, connection:
         connection.executescript(
             "DROP TABLE learn_progress; DROP TABLE learn_attempts; "
             "DELETE FROM schema_migrations WHERE version=2; PRAGMA user_version=1;"

@@ -3,6 +3,8 @@
 import asyncio
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 from time import monotonic
 
@@ -11,8 +13,9 @@ from conftest import MockEvaluator
 from typesafe_sdk import JSONContent
 
 from jev.core.client import Evaluation
+from jev.core.datasets import DatasetRow, iter_dataset
 from jev.core.errors import JevError
-from jev.core.jobs import BatchService
+from jev.core.jobs import BatchService, JobKind
 from jev.core.models import ConfidenceGate, Template
 from jev.core.service import Workbench
 from jev.core.storage import Storage
@@ -283,7 +286,7 @@ async def test_schema3_migration_preserves_history_and_learning(
         "fraction_correct": 1.0,
     }
     wb.storage.save_attempt(attempt, final=True)
-    with sqlite3.connect(wb.storage.path) as connection:
+    with closing(sqlite3.connect(wb.storage.path)) as connection, connection:
         connection.executescript(
             "DROP TABLE job_items; DROP TABLE jobs; DROP TABLE datasets; "
             "DELETE FROM schema_migrations WHERE version=3; PRAGMA user_version=2;"
@@ -440,3 +443,196 @@ async def test_account_or_service_failure_stops_pending_rows_and_keeps_diagnosti
     assert report.error["code"] == code and report.error["message"] == message
     assert report.error["http_status"] == status
     assert report.error["request_id"] == "test-request"
+
+
+@pytest.mark.parametrize("kind", ["batch", "eval"])
+async def test_changed_source_during_initialization_never_dispatches_and_can_resume(
+    wb: Workbench,
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: JobKind,
+) -> None:
+    source, output = dataset(tmp_path, 1), tmp_path / "output.jsonl"
+    original = source.read_bytes()
+    service, evaluator = BatchService(wb), MockEvaluator()
+    approved = service.plan(design, source, kind=kind)
+    register = wb.storage.register_dataset
+
+    def change_before_row_checkpoints(info: dict[str, object]) -> None:
+        register(info)
+        source.write_text(source.read_text().replace("Refund", "Unapproved replacement"))
+
+    with monkeypatch.context() as change:
+        change.setattr(wb.storage, "register_dataset", change_before_row_checkpoints)
+        report = await service.run(
+            design,
+            source,
+            kind=kind,
+            output=output,
+            expected_plan=approved,
+            authorize_cost=True,
+            evaluator=evaluator,
+        )
+    assert not evaluator.requests and not wb.storage.history()
+    assert report.status == "failed" and report.finished_at and report.error
+    assert report.error["code"] == "dataset_changed"
+    assert "No request was sent" in str(report.error["message"])
+    assert report.evaluation is None and report.pending == 1
+    assert service.get(report.id) == report
+    assert list(service.rows(report.id)) == []
+    assert output.read_bytes() == b""
+
+    source.write_bytes(original)
+    resumed = await service.run(design, source, kind=kind, resume_id=report.id, evaluator=evaluator)
+    assert resumed.status == "completed" and len(evaluator.requests) == 1
+    assert evaluator.requests[0]["state"] == "Refund ticket 0"
+    assert len(output.read_text().splitlines()) == 1
+    assert (resumed.evaluation is not None) == (kind == "eval")
+
+
+@pytest.mark.parametrize("failure", ["row_read", "row_checkpoint", "registry"])
+async def test_setup_failures_are_saved_without_partial_rows_and_resume_without_repeats(
+    wb: Workbench,
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    source, output = dataset(tmp_path, 2), tmp_path / "output.jsonl"
+    service, evaluator = BatchService(wb), MockEvaluator()
+    problem = JevError(
+        "invalid_dataset", "Dataset could not be read during setup.", "Restore the source file."
+    )
+    calls = 0
+
+    def fail_during_initial_row_read(
+        path: Path, template: Template, require_labels: bool = False
+    ) -> Iterator[DatasetRow]:
+        nonlocal calls
+        calls += 1
+        current = calls
+        for row in iter_dataset(path, template, require_labels):
+            if current == 2 and row.index == 1:
+                raise problem
+            yield row
+
+    def unavailable(*_args: object, **_kwargs: object) -> None:
+        raise problem
+
+    with monkeypatch.context() as broken:
+        if failure == "row_read":
+            broken.setattr("jev.core.jobs.iter_dataset", fail_during_initial_row_read)
+        else:
+            broken.setattr(
+                wb.storage,
+                "save_job_items" if failure == "row_checkpoint" else "register_dataset",
+                unavailable,
+            )
+        report = await service.run(design, source, output=output, evaluator=evaluator)
+    assert report.status == "failed" and report.finished_at
+    assert report.error == problem.as_dict()
+    assert report.pending == 2 and report.succeeded == 0
+    assert service.get(report.id) == report
+    assert list(service.rows(report.id)) == []
+    assert not evaluator.requests and not wb.storage.history()
+
+    resumed = await service.run(
+        design, source, resume_id=report.id, evaluator=evaluator, requests_per_second=1000
+    )
+    assert resumed.status == "completed" and len(evaluator.requests) == 2
+    assert len(output.read_text().splitlines()) == 2
+
+
+async def test_unexpected_setup_failure_records_safe_diagnostic_before_raising(
+    wb: Workbench,
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, service, evaluator = dataset(tmp_path, 1), BatchService(wb), MockEvaluator()
+
+    def unavailable(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("private local exception details")
+
+    with monkeypatch.context() as broken:
+        broken.setattr(wb.storage, "save_job_items", unavailable)
+        with pytest.raises(RuntimeError):
+            await service.run(design, source, evaluator=evaluator)
+    report = service.list()[0]
+    assert report.status == "failed" and report.finished_at and report.error
+    assert report.error["details"] == {
+        "exception_type": "RuntimeError",
+        "stage": "initialization",
+    }
+    assert "private local" not in json.dumps(report.error)
+    assert not evaluator.requests and list(service.rows(report.id)) == []
+
+
+async def test_rejected_resume_initialization_preserves_existing_checkpoints(
+    wb: Workbench,
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, service = dataset(tmp_path, 2), BatchService(wb)
+    original = source.read_bytes()
+    first = await service.run(
+        design, source, evaluator=MockEvaluator(statuses=[401]), concurrency=1
+    )
+    checkpoints = list(service.rows(first.id))
+    register, evaluator = wb.storage.register_dataset, MockEvaluator()
+
+    def change_source(info: dict[str, object]) -> None:
+        register(info)
+        source.write_text(source.read_text().replace("Refund", "Changed"))
+
+    with monkeypatch.context() as changed:
+        changed.setattr(wb.storage, "register_dataset", change_source)
+        rejected = await service.run(
+            design, source, resume_id=first.id, retry_failed=True, evaluator=evaluator
+        )
+    assert rejected.status == "failed" and rejected.error
+    assert rejected.error["code"] == "dataset_changed" and not evaluator.requests
+    assert list(service.rows(first.id)) == checkpoints
+    assert len(wb.storage.history()) == 1
+    source.write_bytes(original)
+    resumed = await service.run(
+        design,
+        source,
+        resume_id=first.id,
+        retry_failed=True,
+        evaluator=evaluator,
+        requests_per_second=1000,
+    )
+    assert resumed.status == "completed" and len(evaluator.requests) == 2
+
+
+async def test_initialization_keeps_the_approved_resolved_source_if_symlink_changes(
+    wb: Workbench,
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = dataset(tmp_path, 1)
+    replacement = tmp_path / "replacement.jsonl"
+    replacement.write_text(source.read_text().replace("Refund", "Unapproved"))
+    alias = tmp_path / "current.jsonl"
+    alias.symlink_to(source)
+    service, evaluator = BatchService(wb), MockEvaluator()
+    approved = service.plan(design, alias)
+    register = wb.storage.register_dataset
+
+    def retarget(info: dict[str, object]) -> None:
+        register(info)
+        alias.unlink()
+        alias.symlink_to(replacement)
+
+    monkeypatch.setattr(wb.storage, "register_dataset", retarget)
+    report = await service.run(
+        design, alias, expected_plan=approved, authorize_cost=True, evaluator=evaluator
+    )
+    assert report.status == "completed"
+    assert report.dataset.path == str(source.resolve())
+    assert len(evaluator.requests) == 1
+    assert evaluator.requests[0]["state"] == "Refund ticket 0"

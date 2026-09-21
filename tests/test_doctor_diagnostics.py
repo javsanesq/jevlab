@@ -27,9 +27,9 @@ async def test_online_doctor_preserves_reason_without_echoed_key(
         )
 
     def client(**kwargs: Any) -> AsyncTypeSafeClient:
+        kwargs.setdefault("retry", RetryPolicy(max_retries=0))
         return AsyncTypeSafeClient(
             **kwargs,
-            retry=RetryPolicy(max_retries=0),
             transport=httpx2.MockTransport(respond),
         )
 

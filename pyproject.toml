@@ -1,6 +1,6 @@
 [project]
 name = "jev-workbench"
-version = "0.7.0"
+version = "0.7.1"
 description = "A terminal workbench for TypeSafe Jev decisions"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -510,6 +510,9 @@ class BatchService:
             )
         prepared = self._prepare(template, path, kind, resume_id, retry_failed, retry_unknown)
         template, info, previous, items, plan = prepared
+        # Read the resolved file that was approved, even if a caller's symlink is
+        # retargeted while the job is being initialized.
+        path = Path(info.path)
         self._verify_approval(expected_plan, plan, info)
         if plan.requires_confirmation and not authorize_cost:
             raise JevError(
@@ -558,16 +561,8 @@ class BatchService:
             )
             report.evaluation = None
             self._save(report, template)
-            self.wb.storage.register_dataset(info.model_dump())
-            for row in iter_dataset(path, template, require_labels=kind == "eval"):
-                item = items.setdefault(
-                    row.index, JobItem(index=row.index, case_id=row.id, row_sha256=_row_digest(row))
-                )
-                item.status = self._effective_status(item)
-            self.wb.storage.save_job_items(
-                report.id, (item.model_dump() for item in items.values())
-            )
-            iterator = iter_dataset(path, template, require_labels=kind == "eval")
+            iterator: Iterator[DatasetRow] = iter(())
+            initialized = False
             limiter, stop = _RateLimiter(requests_per_second), asyncio.Event()
             done = report.total - plan.remaining_calls
 
@@ -610,6 +605,7 @@ class BatchService:
                             "authentication",
                             "permission",
                             "missing_key",
+                            "credential_timeout",
                             "keychain_unavailable",
                             "model_not_found",
                             "quota",
@@ -623,8 +619,42 @@ class BatchService:
                     if progress:
                         progress(done, report.total)
 
-            tasks = [asyncio.create_task(worker()) for _ in range(concurrency)]
+            tasks: list[asyncio.Task[None]] = []
             try:
+                self.wb.storage.register_dataset(info.model_dump())
+                initialized_items: dict[int, JobItem] = {}
+                for row in iter_dataset(path, template, require_labels=kind == "eval"):
+                    item = (
+                        items[row.index].model_copy(deep=True)
+                        if row.index in items
+                        else JobItem(index=row.index, case_id=row.id, row_sha256=_row_digest(row))
+                    )
+                    item.status = self._effective_status(item)
+                    initialized_items[row.index] = item
+                try:
+                    unchanged = _digest(Path(info.path)) == info.sha256
+                except OSError:
+                    raise JevError(
+                        "invalid_dataset",
+                        "The dataset could not be checked before requests started.",
+                        "Restore access to the original file, then resume this saved job.",
+                    ) from None
+                if not unchanged:
+                    raise JevError(
+                        "dataset_changed",
+                        "The dataset changed while preparing the job. No request was sent.",
+                        "Restore the original file before resuming, or start a new job "
+                        "to review the changed data.",
+                    )
+                # Persist only a snapshot verified against the approved file. A rejected
+                # initialization must not replace the digests needed to resume safely.
+                self.wb.storage.save_job_items(
+                    report.id, (item.model_dump() for item in initialized_items.values())
+                )
+                items = initialized_items
+                iterator = iter_dataset(path, template, require_labels=kind == "eval")
+                initialized = True
+                tasks = [asyncio.create_task(worker()) for _ in range(concurrency)]
                 await asyncio.gather(*tasks)
                 report.status = (
                     "completed"
@@ -642,8 +672,18 @@ class BatchService:
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
-            except Exception:
+            except Exception as error:
                 report.status = "failed"
+                report.error = JevError(
+                    "job_error",
+                    "An unexpected local error stopped the job; its cause is not known.",
+                    "Inspect the saved job details and run jev doctor before resuming. "
+                    "Successful rows remain saved.",
+                    details={
+                        "exception_type": type(error).__name__,
+                        "stage": "execution" if initialized else "initialization",
+                    },
+                ).as_dict()
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
@@ -656,52 +696,56 @@ class BatchService:
                 self._summarize(report, items)
                 # Save the durable outcome before secondary analysis or output can fail.
                 self._save(report, template)
-                try:
-                    if report.error and report.error.get("code") == "dataset_changed":
-                        raise JevError(
-                            "dataset_changed",
-                            "A dataset row changed during processing.",
-                            "Restore the original file and start a new job with stable inputs.",
-                        )
-                    current = inspect_dataset(path, template, require_labels=kind == "eval")
-                    if current.sha256 != info.sha256:
-                        raise JevError(
-                            "dataset_changed",
-                            "The dataset changed while the job was running.",
-                            "Restore the original file before resuming; saved runs are preserved.",
-                        )
-                    pairs: list[tuple[DatasetRow, Run | None]] = []
-                    for row in iter_dataset(path, template, require_labels=kind == "eval"):
-                        item = items[row.index]
-                        run = None
-                        if item.run_id:
-                            try:
-                                run = self.wb.storage.get(item.run_id)
-                            except JevError:
-                                pass
-                        self._verify_row(row, item, run)
+                if initialized:
+                    try:
+                        if report.error and report.error.get("code") == "dataset_changed":
+                            raise JevError(
+                                "dataset_changed",
+                                "A dataset row changed during processing.",
+                                "Restore the original file and start a new job with stable inputs.",
+                            )
+                        current = inspect_dataset(path, template, require_labels=kind == "eval")
+                        if current.sha256 != info.sha256:
+                            raise JevError(
+                                "dataset_changed",
+                                "The dataset changed while the job was running.",
+                                "Restore the original file before resuming; "
+                                "saved runs are preserved.",
+                            )
+                        pairs: list[tuple[DatasetRow, Run | None]] = []
+                        for row in iter_dataset(path, template, require_labels=kind == "eval"):
+                            item = items[row.index]
+                            run = None
+                            if item.run_id:
+                                try:
+                                    run = self.wb.storage.get(item.run_id)
+                                except JevError:
+                                    pass
+                            self._verify_row(row, item, run)
+                            if kind == "eval":
+                                pairs.append((row, run))
                         if kind == "eval":
-                            pairs.append((row, run))
-                    if kind == "eval":
-                        report.evaluation = evaluate_runs(template, pairs)
-                        self._evaluation_totals(report, items)
-                    self._export(report, template)
-                except (JevError, OSError) as error:
-                    if isinstance(error, JevError) and error.code == "dataset_changed":
-                        report.evaluation = None
-                    if report.status != "interrupted":
-                        report.status = "failed"
-                    report.error = (
-                        error.as_dict()
-                        if isinstance(error, JevError)
-                        else {
-                            "code": "output_error",
-                            "message": "Could not write output; results remain saved in SQLite.",
-                            "fix": (
-                                "Check output permissions and resume to rebuild the file "
-                                "without repeating successes."
-                            ),
-                        }
-                    )
-                self._save(report, template)
+                            report.evaluation = evaluate_runs(template, pairs)
+                            self._evaluation_totals(report, items)
+                        self._export(report, template)
+                    except (JevError, OSError) as error:
+                        if isinstance(error, JevError) and error.code == "dataset_changed":
+                            report.evaluation = None
+                        if report.status != "interrupted":
+                            report.status = "failed"
+                        report.error = (
+                            error.as_dict()
+                            if isinstance(error, JevError)
+                            else {
+                                "code": "output_error",
+                                "message": (
+                                    "Could not write output; results remain saved in SQLite."
+                                ),
+                                "fix": (
+                                    "Check output permissions and resume to rebuild the file "
+                                    "without repeating successes."
+                                ),
+                            }
+                        )
+                    self._save(report, template)
             return report

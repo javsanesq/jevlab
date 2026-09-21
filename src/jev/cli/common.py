@@ -1,5 +1,6 @@
 """Shared CLI output, error boundaries, and local application setup."""
 
+import errno
 import json
 import sqlite3
 import sys
@@ -46,6 +47,34 @@ def emit_error(error: JevError, machine: bool) -> None:
         stderr.print(Text(human_error(error, verbose=_verbose.get())))
 
 
+def local_error(failure: OSError | sqlite3.Error | UnicodeError | ValueError) -> JevError:
+    """Classify local failures without exposing exception text, file contents, or secrets."""
+    message = "A local operation failed; its exact cause is unknown."
+    fix = "Use --verbose for the exception type, then run jev doctor and report those details."
+    if isinstance(failure, FileNotFoundError):
+        message = "A required file or folder does not exist."
+        fix = "Check the supplied path. For --state, choose an existing text or JSON file."
+    elif isinstance(failure, PermissionError):
+        message = "The operating system denied access to the requested file or folder."
+        fix = "Check the file's access permissions or choose a folder you can read and write."
+    elif isinstance(failure, IsADirectoryError):
+        message = "The supplied path points to a folder where a file is required."
+        fix = "Choose the file inside that folder, including its filename."
+    elif isinstance(failure, NotADirectoryError):
+        message = "A folder component of the supplied path is actually a file."
+        fix = "Check each folder in the path, then choose the intended input or output file."
+    elif isinstance(failure, UnicodeDecodeError):
+        message = "The input file is not readable as UTF-8 text."
+        fix = "Save or export it as UTF-8 text, JSON, JSONL, or CSV before importing it."
+    elif isinstance(failure, OSError) and failure.errno == errno.ENOSPC:
+        message = "There is not enough free disk space to save the requested data."
+        fix = "Free disk space, then check history before repeating any paid request."
+    details: dict[str, object] = {"exception_type": type(failure).__name__}
+    if isinstance(failure, OSError) and failure.errno is not None:
+        details["errno"] = failure.errno
+    return JevError("local_error", message, fix, details=details)
+
+
 def guarded[**P, R](function: Callable[P, R]) -> Callable[P, R]:
     @wraps(function)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -64,12 +93,8 @@ def guarded[**P, R](function: Callable[P, R]) -> Callable[P, R]:
             )
             emit_error(error, machine)
             raise typer.Exit(2) from None
-        except (OSError, sqlite3.Error, UnicodeError, ValueError):
-            error = JevError(
-                "local_error",
-                "Could not read or save the requested data.",
-                "Check input format, permissions, and available disk space.",
-            )
+        except (OSError, sqlite3.Error, UnicodeError, ValueError) as failure:
+            error = local_error(failure)
             emit_error(error, machine)
             raise typer.Exit(2) from None
         except (typer.Exit, typer.Abort):

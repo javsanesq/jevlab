@@ -103,12 +103,13 @@ lessons. Install coach dependencies in the **global tool environment** (installi
 them only in the project's development environment is insufficient):
 
 ```sh
-cd ~/jev
+cd ~/jevlab
 make install COACH=both       # or COACH=anthropic / COACH=openai
 jev config --provider anthropic
 ```
 
 Later `make install` upgrades preserve the coach extras already installed.
+Keep using your existing source folder if it is still named `~/jev`.
 Setup stores keys in macOS Keychain, with `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`
 as environment fallbacks. Never put a key in a command argument or configuration
 file. Each provider now keeps its own configurable model: `anthropic_model`
@@ -300,8 +301,13 @@ Latency measures the complete SDK call, including retries, excluding Keychain lo
 Comparison timings also include the brief wait to register both linked history rows.
 
 Requests use the SDK's two retries by default, a 10-second timeout per HTTP
-operation, and a 45-second overall inference deadline. Configure these with
+operation, and a 45-second overall deadline including credential lookup. Keychain
+lookup is limited to five seconds (or the shorter overall deadline); a lookup
+timeout reports that no API request was sent. Configure request limits with
 `jev config --set max_retries=2 --set timeout_seconds=10 --set deadline_seconds=45`.
+Comparisons perform one bounded shared key lookup before the two per-call
+deadlines. Doctor's preliminary credential inventory is also bounded; its online
+models check then uses the configured request deadline separately.
 Cancellation cannot establish whether the server completed or billed a request;
 interrupted/failed calls retain that uncertainty. A hard process kill can leave
 a pending record. Context counts use a character-based approximation; the server
@@ -341,7 +347,7 @@ from the official Jev SDK; calculating metrics and moving sliders is local.
 Try the three-case synthetic fixture shipped with the source:
 
 ```sh
-cd ~/jev
+cd ~/jevlab
 jev datasets import examples/support-eval.jsonl --template support-triage --json
 jev eval plan support-triage examples/support-eval.jsonl --json
 jev eval run support-triage examples/support-eval.jsonl --concurrency 4 --rate 2 --json
@@ -444,7 +450,10 @@ successful calls. Output changed by another program is not overwritten; choose a
 new output path. A job lock prevents two processes resuming the same job.
 
 Resume uses the saved template and checks the original dataset. Completed rows
-are not repeated. Cancelled or crashed requests may have finished remotely;
+are not repeated. Changes during job preparation stop the job before any request;
+restore the original file to resume, or preview a new job for changed inputs.
+Preparation failures are saved with their reason and completion time.
+Cancelled or crashed requests may have finished remotely;
 `--retry-unknown` explicitly permits retrying them and may incur duplicate cost.
 Authentication errors stop scheduling more work; completed rows stay saved.
 Evals also accept `--resume`, `--retry-failed`, and `--retry-unknown` with the
@@ -597,8 +606,9 @@ are repository artifacts suitable for README embeds; no image service is used.
 
 ## Development and verification
 
-The current verification record is in the [Phase 2 checkpoint](docs/FOLLOWUP_PHASE2.md)
-and [changelog](CHANGELOG.md). CI runs lint, types, offline tests and an installed
+The current verification record is in the [changelog](CHANGELOG.md), with the
+preceding changes in the [Phase 2 checkpoint](docs/FOLLOWUP_PHASE2.md).
+CI runs lint, types, offline tests and an installed
 wheel check without provider secrets. Real API checks are always identified separately.
 
 ```sh

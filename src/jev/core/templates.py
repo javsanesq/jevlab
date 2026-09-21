@@ -16,6 +16,17 @@ from jev.core.errors import JevError
 from jev.core.files import atomic_write, read_text
 from jev.core.models import Template
 
+# A local workbench bound, independent of a provider's context limit. This stays
+# below the nesting that Python/YAML/Pydantic serializers can process reliably.
+MAX_NESTING = 64
+
+
+def nesting_error(format: str) -> ValueError:
+    return ValueError(
+        f"{format} is too deeply nested. Reduce nested lists or mappings to at most "
+        f"{MAX_NESTING} levels before continuing."
+    )
+
 
 class UniqueLoader(yaml.SafeLoader):
     def construct_mapping(self, node: MappingNode, deep: bool = False) -> dict[Hashable, object]:
@@ -34,9 +45,50 @@ def load_yaml(text: str) -> object:
     if len(text.encode()) > 2_000_000:
         raise ValueError("Template exceeds the 2 MB limit.")
     # Aliases are unnecessary here and can produce cyclic or exponentially expanded input.
-    if any(isinstance(token, (yaml.AliasToken, yaml.AnchorToken)) for token in yaml.scan(text)):
-        raise ValueError("YAML anchors and aliases are not supported.")
-    return yaml.load(text, Loader=UniqueLoader)
+    try:
+        depth = 0
+        for token in yaml.scan(text):
+            if isinstance(token, (yaml.AliasToken, yaml.AnchorToken)):
+                raise ValueError("YAML anchors and aliases are not supported.")
+            if isinstance(
+                token,
+                (
+                    yaml.BlockMappingStartToken,
+                    yaml.BlockSequenceStartToken,
+                    yaml.FlowMappingStartToken,
+                    yaml.FlowSequenceStartToken,
+                ),
+            ):
+                depth += 1
+                if depth > MAX_NESTING:
+                    raise nesting_error("YAML")
+            elif isinstance(
+                token, (yaml.BlockEndToken, yaml.FlowMappingEndToken, yaml.FlowSequenceEndToken)
+            ):
+                depth -= 1
+        return yaml.load(text, Loader=UniqueLoader)
+    except RecursionError:
+        raise nesting_error("YAML") from None
+
+
+def load_json(text: str) -> object:
+    """Parse editable JSON without turning unsupported nesting into a UI crash."""
+    if len(text.encode()) > 2_000_000:
+        raise ValueError("JSON exceeds the 2 MB limit. Shorten it before continuing.")
+    try:
+        value = json.loads(text)
+    except RecursionError:
+        raise nesting_error("JSON") from None
+    pending = [(value, 0)]
+    while pending:
+        item, depth = pending.pop()
+        if isinstance(item, (dict, list)):
+            if depth >= MAX_NESTING:
+                raise nesting_error("JSON")
+            pending.extend(
+                (child, depth + 1) for child in (item.values() if isinstance(item, dict) else item)
+            )
+    return value
 
 
 def validation_message(error: ValueError | yaml.YAMLError) -> str:

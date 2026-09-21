@@ -79,6 +79,12 @@ def coach_error(error: Exception, *, provider: str = "", secrets: Iterable[str] 
             sanitize_text(error.fix, secrets),
             error.exit_code,
             error.retryable,
+            request_id=sanitize_text(error.request_id, secrets) if error.request_id else None,
+            run_id=sanitize_text(error.run_id, secrets) if error.run_id else None,
+            http_status=error.http_status,
+            provider_code=sanitize_text(error.provider_code, secrets)
+            if error.provider_code
+            else None,
         )
     status = getattr(error, "status_code", None)
     message, identity = _provider_fields(error)
@@ -181,4 +187,14 @@ def coach_error(error: Exception, *, provider: str = "", secrets: Iterable[str] 
     # failures expose their documented provider message, never an exception repr.
     if isinstance(status, int) and message:
         summary += f" Provider message: {sanitize_text(message, secrets)}"
-    return JevError(code, summary, fix, 4, retryable)
+    request_id = getattr(error, "request_id", None)
+    return JevError(
+        code,
+        summary,
+        fix,
+        4,
+        retryable,
+        request_id=sanitize_text(request_id, secrets) if isinstance(request_id, str) else None,
+        http_status=status if isinstance(status, int) and 100 <= status <= 599 else None,
+        provider_code=sanitize_text(identity, secrets) or None,
+    )

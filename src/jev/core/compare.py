@@ -10,7 +10,7 @@ from pydantic import Field
 from typesafe_sdk import ChoiceAnswer, JSONContent, NoulAnswer, ScoreAnswer, SystemOneResponse
 
 from jev.core.client import Evaluation, Evaluator, SDKClient, translate_error
-from jev.core.credentials import Credentials
+from jev.core.credentials import Credentials, require_credentials
 from jev.core.errors import JevError
 from jev.core.models import Run, StrictModel, Template
 from jev.core.pricing import price
@@ -186,15 +186,17 @@ async def compare(
             "Review the estimate and explicitly authorize both calls.",
         )
 
-    # Resolve Keychain/environment credentials once, outside the two inference
-    # timers and deadlines. A credential error still becomes two linked failed
-    # history records. Comparison latency includes the brief registration barrier.
+    # Bound the shared credential lookup separately from the two inference
+    # deadlines. A credential error still becomes two linked failed history
+    # records. Comparison latency includes the brief registration barrier.
     api_key: str | None = None
     credential_error: JevError | None = None
     if evaluator is None:
         try:
             credentials = Credentials(wb.settings.credential_mode)
-            api_key = await asyncio.to_thread(credentials.require)
+            api_key = await require_credentials(
+                credentials, timeout_seconds=min(5.0, wb.settings.deadline_seconds)
+            )
         except Exception as error:
             credential_error = translate_error(error)
     left_id, right_id = str(uuid4()), str(uuid4())

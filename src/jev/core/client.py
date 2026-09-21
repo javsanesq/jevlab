@@ -28,6 +28,8 @@ from jev.core.diagnostics import provider_fields, redact_body, redact_text
 from jev.core.errors import JevError
 from jev.core.models import Settings, Template
 
+PROBABILITY_ROUNDING_ALLOWANCE = 0.015
+
 
 def suppress_wire_logs() -> None:
     # Environment DEBUG settings must not expose state, responses, or credentials.
@@ -113,7 +115,7 @@ def verify_response(template: Template, response: SystemOneResponse) -> None:
                 invalid(f"{path}.probabilities", "At least one probability is required.")
             if any(not math.isfinite(x) or not 0 <= x <= 1 for x in values):
                 invalid(f"{path}.probabilities", "Each probability must be finite and from 0 to 1.")
-            if not math.isclose(sum(values), 1, abs_tol=0.015):
+            if not math.isclose(sum(values), 1, abs_tol=PROBABILITY_ROUNDING_ALLOWANCE):
                 invalid(f"{path}.probabilities", "The probabilities must add up to 1.")
             if isinstance(question, Choice) and isinstance(answer, ChoiceAnswer):
                 if set(question.criteria) != set(answer.probabilities):
@@ -147,6 +149,23 @@ def verify_response(template: Template, response: SystemOneResponse) -> None:
                     invalid(
                         f"{path}.score",
                         "The score must be finite and within the template's level range.",
+                    )
+                expected_score = math.fsum(
+                    level * probability for level, probability in answer.probabilities.items()
+                )
+                # TypeSafe defines score as the weighted mean but does not promise a
+                # rounding precision. Reuse our conservative probability allowance,
+                # scaled to the level range; this is a local defensive policy.
+                if not math.isclose(
+                    answer.score,
+                    expected_score,
+                    rel_tol=0,
+                    abs_tol=PROBABILITY_ROUNDING_ALLOWANCE * (len(question.criteria) - 1),
+                ):
+                    invalid(
+                        f"{path}.score",
+                        f"The score {answer.score:g} contradicts the probability-weighted "
+                        f"mean {expected_score:g} of its levels.",
                     )
     for name, count in [
         ("input_tokens", response.usage.input_tokens),

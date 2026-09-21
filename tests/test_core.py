@@ -205,11 +205,23 @@ def test_keychain_precedence_and_redaction(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_core_has_no_ui_imports() -> None:
     import ast
+    from importlib.util import resolve_name
 
-    for path in Path("src/jev/core").glob("*.py"):
+    from jev import core
+
+    root = Path(core.__file__).parent
+    forbidden = ("textual", "rich", "typer", "jev.tui", "jev.cli", "jev.coach")
+    for path in root.rglob("*.py"):
         tree = ast.parse(path.read_text())
+        package = ".".join(("jev", "core", *path.relative_to(root).parts[:-1]))
         for node in ast.walk(tree):
+            imports: list[str] = []
+            if isinstance(node, ast.Import):
+                imports = [item.name for item in node.names]
             if isinstance(node, ast.ImportFrom):
-                assert not (node.module or "").startswith(
-                    ("textual", "rich", "typer", "jev.tui", "jev.cli", "jev.coach")
-                )
+                module = resolve_name("." * node.level + (node.module or ""), package)
+                imports = [module, *(f"{module}.{item.name}" for item in node.names)]
+            for imported in imports:
+                assert not any(
+                    imported == name or imported.startswith(name + ".") for name in forbidden
+                ), f"{path.name}:{getattr(node, 'lineno', '?')} imports UI dependency {imported}"

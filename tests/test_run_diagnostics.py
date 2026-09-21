@@ -248,6 +248,13 @@ def test_legacy_error_envelope_does_not_gain_null_optional_keys() -> None:
             "level range",
         ),
         (
+            lambda body: body["answers"]["impact"].update(
+                score=2.0, confidence=1.0, probabilities={"0": 1.0, "1": 0.0, "2": 0.0}
+            ),
+            "answers.impact.score",
+            "contradicts the probability-weighted mean 0",
+        ),
+        (
             lambda body: body["usage"].update(input_tokens=-3),
             "usage.input_tokens",
             "cannot be negative",
@@ -272,6 +279,7 @@ async def test_semantic_failures_preserve_specific_reason_and_response(
     assert error.details["response_body"] == body
     saved = wb.storage.get(error.run_id or "")
     assert saved.response == body and saved.error == error.as_dict()
+    assert saved.status == "failed" and not saved.routing
     if path == "usage.input_tokens":
         assert saved.input_tokens is None and saved.cost_nanousd is None
 

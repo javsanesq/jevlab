@@ -39,6 +39,7 @@ from jev.core.pricing import format_cost
 from jev.core.service import Workbench, parse_state
 from jev.core.spending import SpendEstimate
 from jev.core.templates import context_estimate, fork_template, parse_template, validation_message
+from jev.presentation import human_error
 from jev.rendering import render_run
 
 app = typer.Typer(
@@ -409,6 +410,10 @@ def config(
 def display_credentials(credentials: dict[str, object]) -> None:
     for provider, value in credentials.items():
         details = cast(dict[str, object], value)
+        if isinstance(error := details.get("error"), dict):
+            console.print(Text(f"{provider} key: could not check"))
+            console.print(Text(human_error(JevError.from_dict(error))))
+            continue
         present = bool(details.get("present"))
         status = f"found in {details.get('source')}" if present else "not added"
         console.print(Text(f"{provider} key: {status}"))

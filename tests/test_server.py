@@ -91,6 +91,60 @@ async def test_invalid_body_rejected_before_call(wb: Workbench, body: str) -> No
     assert not evaluator.requests
 
 
+@pytest.mark.parametrize(
+    ("body", "reason", "fix"),
+    [
+        (b'{"state":', "Invalid JSON at line 1, column 10", "Correct the JSON syntax"),
+        (b'{"state":"a","state":"b"}', "Duplicate JSON keys", "unique object keys"),
+        (b'{"state":"a","authorize_cost":"true"}', "authorize_cost", "without quotes"),
+        (b'{"state":"a","model":"invented"}', "model: Extra inputs", "Use only state"),
+        (b"{}", "state: Field required", "Provide state"),
+        (b'{"state":{"bad":NaN}}', "JSON numbers must be finite", "replace NaN"),
+        (b'{"state":"\xff"}', "not valid Unicode", "UTF-8"),
+    ],
+)
+async def test_invalid_requests_keep_specific_safe_reasons(
+    wb: Workbench, body: bytes, reason: str, fix: str
+) -> None:
+    evaluator = MockEvaluator()
+    async with client(wb, evaluator) as http:
+        response = await http.post(
+            "/templates/support-triage/run",
+            content=body,
+            headers={"Content-Type": "application/json"},
+        )
+    error = response.json()["error"]
+    assert response.status_code == 422 and error["code"] == "invalid_request"
+    assert reason in error["message"] and fix in error["fix"]
+    assert not evaluator.requests and not wb.storage.history()
+
+
+async def test_request_validation_never_echoes_credentials(wb: Workbench) -> None:
+    evaluator = MockEvaluator()
+    synthetic_provider_key = "sk-test-only-credential-for-redaction"
+    async with client(wb, evaluator) as http:
+        invalid_fields = await http.post(
+            "/templates/support-triage/run",
+            json={
+                "state": "test",
+                "authorize_cost": TOKEN,
+                TOKEN: "extra-field",
+                synthetic_provider_key: "extra-field",
+            },
+        )
+        invalid_length = await http.post(
+            "/templates/support-triage/run",
+            content=b'{"state":"test"}',
+            headers={"Content-Type": "application/json", "Content-Length": TOKEN},
+        )
+    for response in (invalid_fields, invalid_length):
+        assert response.status_code == 422
+        assert TOKEN not in response.text and synthetic_provider_key not in response.text
+    assert "authorize_cost: Input should be a valid boolean" in invalid_fields.text
+    assert "Content-Length must be a non-negative whole number" in invalid_length.text
+    assert not evaluator.requests and not wb.storage.history()
+
+
 async def test_body_limit_unknown_template_and_rate(wb: Workbench) -> None:
     evaluator = MockEvaluator()
     async with client(wb, evaluator, requests_per_second=1) as http:

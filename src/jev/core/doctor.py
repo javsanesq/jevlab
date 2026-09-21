@@ -1,14 +1,15 @@
 """Offline diagnostics, with an explicit optional account connectivity check."""
 
+import asyncio
 import os
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from typesafe_sdk import AsyncTypeSafeClient
+from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy
 
 from jev.core.client import suppress_wire_logs, translate_error
 from jev.core.config import PRIVACY
-from jev.core.credentials import Credentials
+from jev.core.credentials import Credentials, require_credentials
 from jev.core.errors import JevError
 from jev.core.retention import database_bytes
 from jev.core.service import Workbench
@@ -44,7 +45,9 @@ def inspect(workbench: Workbench) -> dict[str, object]:
         "data_directory": str(workbench.root),
         "database": workbench.storage.health(),
         "dependencies": {name: version(name) for name in ["typesafe-sdk", "textual", "keyring"]},
-        "credentials": Credentials(workbench.settings.credential_mode).status(),
+        "credentials": Credentials(workbench.settings.credential_mode).status(
+            timeout_seconds=min(5.0, workbench.settings.deadline_seconds)
+        ),
         "templates": templates,
         "disk_bytes": sum(sizes.values()),
         "files": sizes,
@@ -76,9 +79,21 @@ def inspect(workbench: Workbench) -> dict[str, object]:
 
 async def online(workbench: Workbench) -> list[dict[str, str]]:
     suppress_wire_logs()
-    key = Credentials(workbench.settings.credential_mode).require()
+    settings = workbench.settings
+    deadline = asyncio.get_running_loop().time() + settings.deadline_seconds
+    key = await require_credentials(
+        Credentials(settings.credential_mode), timeout_seconds=min(5.0, settings.deadline_seconds)
+    )
     try:
-        async with AsyncTypeSafeClient(api_key=key, base_url="https://api.typesafe.ai") as client:
+        async with (
+            asyncio.timeout_at(deadline),
+            AsyncTypeSafeClient(
+                api_key=key,
+                base_url="https://api.typesafe.ai",
+                timeout=settings.timeout_seconds,
+                retry=RetryPolicy(max_retries=settings.max_retries),
+            ) as client,
+        ):
             result = await client.models.list()
         return [
             {
