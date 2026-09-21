@@ -1,0 +1,58 @@
+[project]
+name = "jev-workbench"
+version = "0.7.0"
+description = "A terminal workbench for TypeSafe Jev decisions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "typesafe-sdk==0.7.0",
+  "httpx2>=2.13,<3",
+  "textual>=8,<9",
+  "typer>=0.27,<0.28",
+  "rich>=14,<15",
+  "pydantic>=2.12,<3",
+  "PyYAML>=6,<7",
+  "keyring>=25,<26",
+  "tomli-w>=1.2,<2",
+  "starlette>=1.6,<2",
+  "uvicorn>=0.53,<0.54",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=1.7,<2"]
+openai = ["openai>=3.16,<4"]
+
+[project.scripts]
+jev = "jev.cli.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jev"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"docs/GUIDE.md" = "jev/resources/GUIDE.md"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=1", "ruff", "pyright", "types-PyYAML", "langchain-core==1.6.3", "pydantic-ai-slim==2.46.0"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["src", "tests", "scripts"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["live: real billable TypeSafe API calls (explicit --live required)"]

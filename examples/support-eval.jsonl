@@ -1,0 +1,3 @@
+{"id": "double-charge", "state": {"ticket": {"message": "I was charged twice. Please refund the duplicate charge. I can still use the product."}}, "expected": {"route": "billing", "impact": 0, "refund_requested": true}}
+{"id": "app-down", "state": {"ticket": {"message": "The app will not open and our entire team is blocked. Please fix it. We are not requesting a refund."}}, "expected": {"route": "technical", "impact": 2, "refund_requested": false}}
+{"id": "general-thanks", "state": {"ticket": {"message": "Thanks for your help! Everything is working well. No action is needed."}}, "expected": {"route": "other", "impact": 0, "refund_requested": false}}

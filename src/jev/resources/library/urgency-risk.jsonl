@@ -1,0 +1,4 @@
+{"id": "urgency-risk-01", "state": {"report": "The settings label has a typo. Nothing is broken."}, "expected": {"urgency": 0, "risk": 0}, "note": "Cosmetic issue."}
+{"id": "urgency-risk-02", "state": {"report": "Exports fail, but manual download works. No data has been lost."}, "expected": {"urgency": 1, "risk": 1}, "note": "Recoverable impairment with workaround."}
+{"id": "urgency-risk-03", "state": {"report": "A process is permanently deleting production records now. It must be stopped immediately."}, "expected": {"urgency": 2, "risk": 2}, "note": "Current irreversible damage is explicit."}
+{"id": "urgency-risk-04", "state": {"report": "All staff are blocked from logging in, with no workaround. Data remains intact."}, "expected": {"urgency": 2, "risk": 1}, "note": "High urgency does not require irreversible damage."}

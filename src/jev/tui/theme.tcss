@@ -1,0 +1,69 @@
+Screen {
+    background: #0c1015;
+    color: #d5dce3;
+}
+Header { background: #11171f; color: #a4b0bd; height: 1; }
+Footer { background: #11171f; color: #a4b0bd; }
+.page { padding: 1 3; }
+.eyebrow { color: #67d9e8; text-style: bold; height: auto; margin-bottom: 1; }
+.headline { text-style: bold; height: auto; margin-bottom: 1; }
+.muted { color: #8c98a7; height: auto; margin: 1 0; }
+Static { height: auto; }
+Label { color: #a4b0bd; margin-top: 1; height: auto; width: 1fr; }
+Input, Select, TextArea { border: solid #34414f; background: #11171f; }
+Input:focus, Select:focus, TextArea:focus { border: solid #67d9e8; }
+Input { margin: 0 0 1 0; }
+TextArea { height: 6; }
+DataTable { height: 1fr; min-height: 6; background: #0c1015; margin: 1 0; }
+DataTable > .datatable--header { background: #151d26; color: #a4b0bd; text-style: none; }
+DataTable > .datatable--cursor { background: #21303a; color: #67d9e8; }
+.buttons { height: auto; margin: 1 0; overflow-x: auto; }
+Button { border: solid #34414f; background: #11171f; margin-right: 1; min-width: 10; }
+Button.-primary { background: #173039; color: #67d9e8; border: solid #67d9e8; }
+Button:focus { text-style: bold; border: solid #67d9e8; }
+.form-row { height: auto; }
+.form-row > Vertical { width: 1fr; height: auto; margin-right: 2; }
+.form-row > Input, .form-row > Select { width: 1fr; margin-right: 2; }
+.form-row > Field { width: 1fr; margin-right: 2; }
+#state-editor { height: 10; min-height: 6; }
+#raw-content { height: 1fr; }
+#state-example { height: 5; }
+#thresholds { height: 10; }
+#editor-status, #play-status, #settings-status { color: #67d9e8; height: auto; }
+ModalScreen { align: center middle; background: #000000 65%; }
+.dialog { width: 64; max-width: 95%; height: auto; max-height: 90%; padding: 1 2; border: solid #67d9e8; background: #11171f; }
+.wide-dialog { width: 90%; height: 90%; }
+.question-dialog { width: 85%; height: 90%; }
+.help-dialog { width: 82; }
+.threshold-slider { height: 3; padding: 0 1; border: solid #34414f; }
+.threshold-slider:focus { border: solid #67d9e8; color: #67d9e8; }
+#compare-state { height: 12; }
+#job-rows, #worst-misses, #jobs-table { height: 12; }
+#yaml-editor { height: 1fr; min-height: 8; }
+#field-yaml-editor { height: 1fr; }
+#instructions { height: 5; }
+#criteria { height: 10; }
+
+.comparison-columns { height: auto; }
+.comparison-column { width: 1fr; height: auto; margin-right: 1; }
+
+#export-code { height: 14; }
+
+#case-grades { height: 12; }
+
+Screen.simple-mode .advanced { display: none; }
+.focusable-result:focus { border: solid #67d9e8; }
+.settings-advanced { height: auto; }
+#criteria-fields, #criteria-yaml-fields, .criterion-row { height: auto; }
+#template-table { height: 10; }
+Home.simple-mode #template-table { height: 6; }
+Field { height: auto; }
+Field > Label { margin-top: 1; }
+Field > Input { margin-bottom: 0; }
+Field .field-help { padding: 0; margin: 0; border: none; }
+Field .field-help > Contents { padding: 0; }
+Field.simple-field .field-help > CollapsibleTitle { display: none; }
+Field .field-description, Field .field-example { color: #8c98a7; }
+Field .field-error { color: #67d9e8; margin-bottom: 1; }
+Field .invalid-field { border: solid #67d9e8; }
+.result-actions { padding: 0 3; }

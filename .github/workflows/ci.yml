@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: macOS / Python 3.12
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      UV_LOCKED: "true"
+      UV_PYTHON: "3.12"
+      TYPESAFE_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      OPENAI_API_KEY: ""
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Isolate application data and tool installation
+        run: |
+          printf 'UV_TOOL_DIR=%s/jev-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'UV_TOOL_BIN_DIR=%s/jev-bin\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'JEV_HOME=%s/jev-profile\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.9"
+          enable-cache: false
+
+      - name: Install locked development dependencies and coach extras
+        run: uv sync --locked --all-extras --group dev
+
+      - name: Lint and type check
+        run: make lint
+
+      - name: Run offline tests
+        run: make test
+
+      - name: Build and inspect distributions
+        run: |
+          uv build --no-sources
+          python - <<'PY'
+          from pathlib import Path
+          from tarfile import open as open_tar
+          from zipfile import ZipFile
+
+          expected = Path("docs/GUIDE.md").read_bytes()
+          wheels = list(Path("dist").glob("*.whl"))
+          sources = list(Path("dist").glob("*.tar.gz"))
+          assert len(wheels) == len(sources) == 1
+          with ZipFile(wheels[0]) as wheel:
+              assert wheel.read("jev/resources/GUIDE.md") == expected
+              assert not any(name.endswith(".pth") for name in wheel.namelist())
+          with open_tar(sources[0]) as source:
+              guides = [item for item in source.getmembers() if item.name.endswith("/docs/GUIDE.md")]
+              assert len(guides) == 1
+              content = source.extractfile(guides[0])
+              assert content is not None and content.read() == expected
+          print("Wheel and source archive include the complete guide.")
+          PY
+
+      - name: Install the wheel into an isolated uv tool environment
+        run: |
+          uv export --locked --all-extras --no-dev --no-emit-project --no-hashes \
+            --format requirements.txt --output-file "$RUNNER_TEMP/jev-constraints.txt" > /dev/null
+          export PATH="$UV_TOOL_BIN_DIR:$PATH"
+          wheels=(dist/*.whl)
+          uv tool install --python 3.12 --constraints "$RUNNER_TEMP/jev-constraints.txt" "${wheels[0]}"
+          mkdir -p "$JEV_HOME"
+          printf 'credential_mode = "environment"\n' > "$JEV_HOME/config.toml"
+
+      - name: Test installed commands from a fresh shell outside the checkout
+        working-directory: ${{ runner.temp }}
+        shell: bash --noprofile --norc {0}
+        run: |
+          export PATH="$UV_TOOL_BIN_DIR:$PATH"
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tomllib
+          from pathlib import Path
+          from typing import Any
+
+          source = Path(os.environ["GITHUB_WORKSPACE"])
+          assert Path.cwd() != source
+          executable = shutil.which("jev")
+          assert executable == str(Path(os.environ["UV_TOOL_BIN_DIR"]) / "jev")
+          version = tomllib.loads((source / "pyproject.toml").read_text())["project"]["version"]
+
+          def run(*args: str) -> str:
+              result = subprocess.run(
+                  [executable, *args], stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                  check=True, timeout=30,
+              )
+              assert not result.stderr, result.stderr
+              return result.stdout
+
+          def payload(*args: str) -> dict[str, Any]:
+              result = json.loads(run(*args, "--json"))
+              assert result["schema_version"] == 1 and result["ok"] is True
+              return result["data"]
+
+          assert run("--version").strip() == f"jev {version}"
+          expected = (source / "docs/GUIDE.md").read_text()
+          assert payload("guide")["content"] == expected
+          assert run("guide").rstrip() == expected.rstrip()
+          assert "RECORDED EXAMPLE" in payload("demo")["disclaimer"]
+          assert len(payload("tour")["steps"]) == 3
+          assert "confidence" in {name.casefold() for name in payload("glossary", "confidence")}
+          payload("doctor")
+          print(f"Installed jev {version}: guide, demo, tour, glossary, and offline doctor passed.")
+          PY

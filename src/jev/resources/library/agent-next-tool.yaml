@@ -1,0 +1,20 @@
+schema_version: 1
+name: agent-next-tool
+description: Agent next-tool selection
+model: jev-1.13.0
+state:
+  description: request is the current user request.
+  format: json
+  example:
+    request: How do I export a CSV report?
+questions:
+  tool:
+    type: choice
+    instructions: Which read-only capability best fits `request`?
+    criteria:
+      search_docs: Answer a how-to question about product usage.
+      inspect_status: Check the current status of a named incident or service.
+      ask_user: The request lacks enough information for either capability.
+thresholds: {}
+notes: Code enforces tool permissions, validates arguments, and executes only an allowed
+  tool. Missing inputs should be collected before execution.

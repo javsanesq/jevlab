@@ -1,0 +1,21 @@
+schema_version: 1
+name: groundedness
+description: Groundedness checking
+model: jev-1.13.0
+state:
+  description: claim is one factual claim; evidence is the retrieved passage.
+  format: json
+  example:
+    claim: An approved refund can take up to five business days to arrive.
+    evidence: Approved refunds arrive within five business days.
+questions:
+  grounded:
+    type: noul
+    instructions: Is `claim` supported by `evidence`, without adding outside knowledge?
+    criteria:
+      'true': The passage directly supports the whole claim or a faithful paraphrase.
+      'false': The passage contradicts the claim or does not establish it.
+thresholds: {}
+notes: Split multi-claim answers in code. Check citation existence and literal quote
+  presence in code before semantic support. Missing evidence counts as unsupported
+  here.

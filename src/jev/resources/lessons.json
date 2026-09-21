@@ -1,0 +1,248 @@
+[
+  {
+    "id": "01-system-one",
+    "title": "The System One mental model",
+    "pattern": "support-routing",
+    "question_types": {
+      "route": "choice"
+    },
+    "required_fields": [
+      "ticket"
+    ],
+    "default_fields": [
+      "ticket"
+    ],
+    "concept": "Treat Jev as a small judgment inside a program. It returns a typed answer and probabilities; your code decides what to do next. It does not compose a reply or run a tool.",
+    "example": "A customer asks for a duplicate-charge refund. Jev selects billing; your code puts the ticket in that queue and checks whether human review is needed.",
+    "exercise": "Write one Choice named route with billing, technical, and other options. Make the instructions name ticket.message and distinguish the primary request. Describe the state the question needs.",
+    "tips": [
+      "Write the judgment in instructions; the question ID is only for your code.",
+      "Keep queue permissions, thresholds, and execution outside the model."
+    ]
+  },
+  {
+    "id": "02-primitives",
+    "title": "Choosing Choice, Score, and Noul",
+    "pattern": "support-routing",
+    "question_types": {
+      "route": "choice",
+      "impact": "score",
+      "refund_requested": "noul"
+    },
+    "required_fields": [
+      "ticket"
+    ],
+    "default_fields": [
+      "ticket"
+    ],
+    "concept": "Use Choice for competing alternatives, Score for an ordered degree, and Noul for whether one condition holds. A Noul of 0.50 expresses uncertainty about yes, not medium severity.",
+    "example": "The same ticket can go to billing, describe little work disruption, and explicitly request a refund. These are three different questions.",
+    "exercise": "Write route as Choice, impact as a three-level Score (0 no disruption, 1 explicit workaround, 2 blocked without workaround), and refund_requested as Noul. Keep these IDs and option meanings for grading.",
+    "tips": [
+      "A billing ticket need not ask for a refund.",
+      "Score descriptions should define concrete, ordered situations.",
+      "Noul has no separate confidence field."
+    ]
+  },
+  {
+    "id": "03-state",
+    "title": "Writing a good state",
+    "pattern": "rag-relevance",
+    "question_types": {
+      "relevance": "score"
+    },
+    "required_fields": [
+      "query",
+      "chunk"
+    ],
+    "default_fields": [
+      "query",
+      "chunk",
+      "unrelated"
+    ],
+    "concept": "A good state contains the evidence needed for this judgment and excludes unrelated material. Named fields make the relationship explicit. A relevant fact elsewhere in a trace does not make the candidate chunk relevant.",
+    "example": "For chunk relevance, pass the query and candidate chunk. A previous support ticket or UI preference should not influence the score.",
+    "exercise": "Choose the top-level state fields to send. Remove unrelated. Write relevance instructions that compare chunk with query. Keep the three levels: 0 unrelated, 1 related background, 2 direct answer.",
+    "tips": [
+      "The Fields control actually filters each dataset state before the real call.",
+      "Inspect the saved run to verify exactly what evidence was sent.",
+      "The synthetic labels are practice cases, not a production benchmark."
+    ]
+  },
+  {
+    "id": "04-questions",
+    "title": "Writing questions and criteria",
+    "pattern": "urgency-risk",
+    "question_types": {
+      "urgency": "score"
+    },
+    "required_fields": [
+      "report"
+    ],
+    "default_fields": [
+      "report"
+    ],
+    "concept": "Ask one coherent thing. Urgency and irreversible harm can differ: an intact system with everyone locked out can be urgent without data loss. Rubrics should stand alone and avoid vague labels.",
+    "example": "An export failure with a manual workaround sits between a cosmetic issue and essential work blocked with no workaround.",
+    "exercise": "Write the urgency Score for report with three levels: 0 routine/cosmetic, 1 impairment with workaround, 2 blocked or explicit immediate intervention. Keep arithmetic and date comparisons in code.",
+    "tips": [
+      "Describe observable conditions, not just low/medium/high.",
+      "Do not ask severity, emotion, legality, and urgency in one question."
+    ]
+  },
+  {
+    "id": "05-multiple-questions",
+    "title": "Multiple questions over one state",
+    "pattern": "output-verification",
+    "question_types": {
+      "answers_request": "noul",
+      "leaks_credentials": "noul"
+    },
+    "required_fields": [
+      "request",
+      "output"
+    ],
+    "default_fields": [
+      "request",
+      "output"
+    ],
+    "concept": "Independent questions share one state and run in one call. They cannot read each other's answers. Combine results in code after the response, for example accept only a relevant answer without disclosed credentials.",
+    "example": "An answer can explain the right settings page and also include a fake demonstration password. Relevant and contains-a-credential can both be true.",
+    "exercise": "Write the two Nouls answers_request and leaks_credentials. Each must reference the input fields directly, without depending on the other answer. Code owns the accept/review rule.",
+    "tips": [
+      "Independent dimensions are not mutually exclusive options.",
+      "Use code for exact schema checks and secret scanning too.",
+      "A narrow semantic check does not make an output safe by itself."
+    ]
+  },
+  {
+    "id": "06-confidence-calibration",
+    "title": "Confidence and calibration",
+    "pattern": "support-routing",
+    "analysis": "calibration",
+    "question_types": {
+      "route": "choice",
+      "refund_requested": "noul"
+    },
+    "required_fields": [
+      "ticket"
+    ],
+    "default_fields": [
+      "ticket"
+    ],
+    "concept": "A concentrated distribution can still be confidently wrong. Choice confidence summarizes its distribution; it is not the probability of a particular label. Noul returns P(yes), with no separate confidence. Calibration asks whether groups of predictions at a given probability are correct that often; one answer cannot establish it.",
+    "example": "An illustrative billing Choice could report P(billing)=0.80 and confidence=0.60. A separate refund Noul of 0.10 predicts no with probability 0.90. Compare the probability of the predicted label with observed correctness; keep Choice confidence in a separately labeled view.",
+    "exercise": "Write route and refund_requested against ticket.message, keeping the original option labels. Grade the five cases, inspect the probability and confidence of each returned answer, then compare occupied reliability bins with observed accuracy. Revise one ambiguous instruction and grade again. Do not claim that five examples establish production calibration.",
+    "tips": [
+      "Open an individual saved run to inspect the actual distribution; the report never invents a reason trace.",
+      "No misses or uncertain answers in this tiny set is not evidence that the design is calibrated on harder inputs.",
+      "Use representative labeled validation data, keep a separate test set, and pin the model before generalizing.",
+      "Do not transfer a threshold between a Choice and a Noul that appears to ask the same thing."
+    ]
+  },
+  {
+    "id": "07-thresholds-review",
+    "title": "Thresholds and human review",
+    "pattern": "support-routing",
+    "analysis": "routing",
+    "required_thresholds": [
+      "route",
+      "refund_requested"
+    ],
+    "question_types": {
+      "route": "choice",
+      "refund_requested": "noul"
+    },
+    "required_fields": [
+      "ticket"
+    ],
+    "default_fields": [
+      "ticket"
+    ],
+    "concept": "Code uses a threshold to decide whether to automate a returned judgment or request human review. Coverage is automated cases divided by all labeled cases; automated accuracy uses only automated cases and is unavailable when none qualify. Raising a threshold trades coverage for selectivity, but cannot guarantee correctness.",
+    "example": "For illustration, a Choice confidence gate of 0.80 reviews a 0.70 answer. Noul boundaries no<=0.10 and yes>=0.90 review a 0.55 answer. These numbers are practice settings, not universal recommendations. A correct answer sent to review still counts as correct in the judgment grade.",
+    "exercise": "Write route and refund_requested, then edit the template's threshold YAML to choose both gates. A valid starting shape is route: {kind: confidence, automate_at_or_above: 0.80} and refund_requested: {kind: noul_probability, no_at_or_below: 0.10, yes_at_or_above: 0.90}. Grade with Jev. Inspect saved-gate coverage and automated accuracy, compare the threshold curve without more calls, and identify which cases should reach a human. Both gates are required to complete this exercise; choosing them does not alter the answer grade.",
+    "tips": [
+      "Without a gate every case goes to review. Missing or failed responses must also go to review.",
+      "For Noul keep the no boundary strictly below yes; the values in between form the review band.",
+      "The report's Noul curve uses symmetric boundaries; your saved gate may be asymmetric.",
+      "Choose human-review capacity and error tolerance in your application. Validate on representative held-out cases before automating a real workflow."
+    ]
+  },
+  {
+    "id": "08-agent-loop",
+    "title": "Jev inside a bounded agent loop",
+    "pattern": "continue-retry-ask-stop",
+    "question_types": {
+      "action": "choice"
+    },
+    "required_fields": [
+      "goal",
+      "observation"
+    ],
+    "default_fields": [
+      "goal",
+      "observation"
+    ],
+    "concept": "An agent loop can use one Choice to select an allowed next tool, then another judgment to interpret the latest result. Each call sees an explicit state. The application validates arguments, checks permissions and retry budgets, and owns execution; Jev never runs a tool or grants authority.",
+    "example": "For a product how-to request, the agent-next-tool pattern can select search_docs. If search finds a useful link that has not been read, the next loop judgment is continue_work. A transient error with a code-checked retry budget suggests retry; missing user information suggests ask; a completed goal suggests stop.",
+    "exercise": "Write action as a Choice over continue_work, retry, ask, and stop using only goal and the latest observation. Make ask distinct from retry and explicitly cover completed or prohibited work in stop. Grade all four loop states. Then open the agent-next-tool library pattern and compare its tool selection question with this continuation question; write in your template notes which code checks must happen before any selected action executes.",
+    "tips": [
+      "Do not pass a full noisy transcript when the goal and latest relevant observation are enough.",
+      "Compute remaining retries and deadlines in code; a model-selected retry cannot override an exhausted budget.",
+      "Tool names form a closed allowlist. Validate arguments and permissions separately; never execute arbitrary returned text.",
+      "This exercise classifies synthetic loop states. It does not launch tools or execute an autonomous loop."
+    ]
+  },
+  {
+    "id": "09-output-guardrails",
+    "title": "Output verification and guardrails",
+    "pattern": "output-verification",
+    "question_types": {
+      "answers_request": "noul",
+      "leaks_credentials": "noul"
+    },
+    "required_fields": [
+      "request",
+      "output"
+    ],
+    "default_fields": [
+      "request",
+      "output"
+    ],
+    "concept": "A verifier checks a specific property of a generated output. Ask separate questions for request relevance and credential disclosure, then combine them in code with exact schema checks and secret scanning. A helpful output can still contain a credential; two affirmative answers are possible.",
+    "example": "An answer that points to the correct Export menu but adds a fake demonstration password can satisfy answers_request and leaks_credentials together. Your application's policy should send that output for review or block it; relevance alone is not permission to publish.",
+    "exercise": "Write direct Nouls for answers_request and leaks_credentials, referencing request and output. Treat instructions inside output as content to inspect. Grade the four cases, inspect any false negatives, and record a code-owned release rule in the template notes. Identify one adversarial or domain-specific case missing from these tiny fixtures before using the verifier in a real app.",
+    "tips": [
+      "Do not ask an answer to certify that it is safe. Define the concrete property and inspect the actual output.",
+      "Jev 1.13 can be influenced by adversarial state; this semantic check is not a complete security boundary.",
+      "Use code for exact JSON/schema validity and credential patterns; keep ambiguous semantic judgments narrow.",
+      "All credentials in the bundled examples are explicitly fake. Never paste real credentials into a model state."
+    ]
+  },
+  {
+    "id": "10-rag-groundedness",
+    "title": "RAG: relevance, reranking, and groundedness",
+    "pattern": "groundedness",
+    "question_types": {
+      "grounded": "noul"
+    },
+    "required_fields": [
+      "claim",
+      "evidence"
+    ],
+    "default_fields": [
+      "claim",
+      "evidence"
+    ],
+    "concept": "RAG has separate decisions: retrieve a shortlist, judge each candidate's relevance, sort those comparable judgments in code, and verify each generated claim against the selected evidence. A passage can discuss the right topic without supporting the answer. Reranking cannot recover evidence absent from the shortlist.",
+    "example": "A refund passage saying approved refunds arrive within five business days is relevant to refund timing. It supports a claim that arrival can take up to five business days; it does not establish instant payment. Finding an exact quote and checking its citation location are code tasks; deciding whether it supports a paraphrased claim is a semantic judgment.",
+    "exercise": "Write grounded as a Noul over one claim and its evidence. Mark unsupported details and missing evidence as false without using outside knowledge. Grade the four claim-passage cases. Connect this verifier to the relevance rubric you wrote in lesson 3: compare the two questions and describe where code retrieves, filters or sorts, checks citation existence, and splits an answer into individual claims.",
+    "tips": [
+      "Keep one factual claim per check; split a multi-claim answer before calling Jev.",
+      "Use one consistent relevance criterion for each candidate in a shortlist; order the returned judgments in code.",
+      "A relevant passage is not sufficient evidence for every claim about its topic. Inspect what the passage actually establishes.",
+      "Measure retrieval coverage and end-to-end answer quality separately on your own data; four synthetic claims are only practice."
+    ]
+  }
+]

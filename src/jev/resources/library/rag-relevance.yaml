@@ -1,0 +1,23 @@
+schema_version: 1
+name: rag-relevance
+description: RAG chunk relevance
+model: jev-1.13.0
+state:
+  description: query and chunk contain the retrieval question and a candidate passage.
+  format: json
+  example:
+    query: How long do refunds take?
+    chunk: Approved refunds reach the original payment method within five business
+      days.
+    unrelated: The user prefers a dark UI.
+questions:
+  relevance:
+    type: score
+    instructions: How useful is `chunk` for answering `query`?
+    criteria:
+    - Unrelated to the question.
+    - Related background but does not answer the specific question.
+    - Direct evidence that answers the specific question.
+thresholds: {}
+notes: Retrieve candidates in code, score them, then sort by comparable scores. Reranking
+  cannot recover missing evidence. The unrelated field is an intentional lesson distractor.

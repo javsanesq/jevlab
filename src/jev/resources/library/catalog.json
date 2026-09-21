@@ -1,0 +1,72 @@
+[
+  {
+    "id": "support-routing",
+    "title": "Support ticket routing",
+    "when_to_use": "Route the primary request to one support team; inspect impact and refund intent independently.",
+    "notes": "Define ownership in code. These synthetic labels are educational, not a support benchmark.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/primitives/choice"
+    ]
+  },
+  {
+    "id": "agent-next-tool",
+    "title": "Agent next-tool selection",
+    "when_to_use": "Choose among a small, available set of read-only capabilities.",
+    "notes": "Code enforces tool permissions, validates arguments, and executes only an allowed tool. Missing inputs should be collected before execution.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/cookbooks/function_calling"
+    ]
+  },
+  {
+    "id": "continue-retry-ask-stop",
+    "title": "Continue, retry, ask, or stop",
+    "when_to_use": "Interpret the latest observation in a bounded agent loop.",
+    "notes": "Retry budgets and timeouts are computed and enforced in code. This judgment never authorizes tool execution or an unlimited loop.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/concepts/state"
+    ]
+  },
+  {
+    "id": "urgency-risk",
+    "title": "Urgency and operational risk",
+    "when_to_use": "Describe urgency and possible harm along separate, concrete dimensions.",
+    "notes": "Do not infer real deadlines or compute elapsed time in the model. Use code-derived fields for timing. Synthetic examples are not safety certification.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/patterns/composite-scoring"
+    ]
+  },
+  {
+    "id": "output-verification",
+    "title": "Output verification and guardrails",
+    "when_to_use": "Check a generated answer on independent dimensions before code applies policy.",
+    "notes": "Code should perform exact format/schema checks and secret scanning too. A semantic judgment is one signal, not a complete security boundary. Example secrets below are deliberately fake.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/cookbooks/llm_guardrails"
+    ]
+  },
+  {
+    "id": "rag-relevance",
+    "title": "RAG chunk relevance",
+    "when_to_use": "Score each candidate chunk against the same query with a shared rubric.",
+    "notes": "Retrieve candidates in code, score them, then sort by comparable scores. Reranking cannot recover missing evidence. The unrelated field is an intentional lesson distractor.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/cookbooks/rerank_typesafe"
+    ]
+  },
+  {
+    "id": "groundedness",
+    "title": "Groundedness checking",
+    "when_to_use": "Check whether a single factual claim is supported by retrieved evidence.",
+    "notes": "Split multi-claim answers in code. Check citation existence and literal quote presence in code before semantic support. Missing evidence counts as unsupported here.",
+    "sources": [
+      "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "https://docs.typesafe.ai/cookbooks/citation_check"
+    ]
+  }
+]

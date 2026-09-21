@@ -1,0 +1,34 @@
+schema_version: 1
+name: support-routing
+description: Support ticket routing
+model: jev-1.13.0
+state:
+  description: ticket.message contains the customer text.
+  format: json
+  example:
+    ticket:
+      message: Please refund my duplicate charge.
+questions:
+  route:
+    type: choice
+    instructions: Which team should handle the primary request in `ticket.message`?
+    criteria:
+      billing: Charges, invoices, subscriptions, or refunds.
+      technical: A malfunctioning feature or integration.
+      other: A request outside billing and technical support, or no clear request.
+  impact:
+    type: score
+    instructions: How much work disruption is explicitly described in `ticket.message`?
+    criteria:
+    - No work disruption is described.
+    - A feature is impaired but a usable workaround is explicitly described.
+    - Essential work is blocked and no usable workaround is described.
+  refund_requested:
+    type: noul
+    instructions: Does `ticket.message` explicitly request money back?
+    criteria:
+      'true': The customer asks to return a payment.
+      'false': The customer does not ask to return a payment.
+thresholds: {}
+notes: Define ownership in code. These synthetic labels are educational, not a support
+  benchmark.

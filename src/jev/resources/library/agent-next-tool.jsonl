@@ -1,0 +1,4 @@
+{"id": "agent-next-tool-01", "state": {"request": "How do I export a CSV report?"}, "expected": {"tool": "search_docs"}, "note": "Usage instructions belong in documentation."}
+{"id": "agent-next-tool-02", "state": {"request": "Is the EU storage service down right now?"}, "expected": {"tool": "inspect_status"}, "note": "Current service status requires a status lookup."}
+{"id": "agent-next-tool-03", "state": {"request": "Can you check it for me?"}, "expected": {"tool": "ask_user"}, "note": "The target and task are missing."}
+{"id": "agent-next-tool-04", "state": {"request": "Where can I find the instructions for API pagination?"}, "expected": {"tool": "search_docs"}, "note": "A how-to request, not a current incident."}

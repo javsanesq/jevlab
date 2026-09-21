@@ -1,0 +1,43 @@
+schema_version: 1
+name: support-triage
+description: Route a support ticket and inspect its impact and refund request.
+state:
+  description: A JSON object with the customer's own text in ticket.message.
+  format: json
+  example:
+    ticket:
+      message: I was charged twice for one order. Please refund the duplicate charge.
+model: jev-1.13.0
+questions:
+  route:
+    type: choice
+    instructions: Which team should handle the primary request in `ticket.message`?
+    criteria:
+      billing: Charges, invoices, subscriptions, or refunds.
+      technical: A malfunctioning product feature or integration.
+      other: Anything outside billing or technical support, or no clear request.
+  impact:
+    type: score
+    instructions: How much does the reported issue disrupt the customer's work?
+    criteria:
+      - No work disruption is described; the report is cosmetic or informational.
+      - A feature is impaired, but a usable workaround is explicitly described.
+      - Essential work is blocked and no usable workaround is described.
+  refund_requested:
+    type: noul
+    instructions: Does `ticket.message` explicitly ask to return a payment?
+    criteria:
+      "true": The customer explicitly requests money back.
+      "false": The customer does not explicitly request money back.
+thresholds:
+  route:
+    kind: confidence
+    automate_at_or_above: 0.85
+  impact:
+    kind: confidence
+    automate_at_or_above: 0.85
+  refund_requested:
+    kind: noul_probability
+    no_at_or_below: 0.10
+    yes_at_or_above: 0.90
+notes: Starter design with uncalibrated thresholds. Test on labeled cases before relying on it.

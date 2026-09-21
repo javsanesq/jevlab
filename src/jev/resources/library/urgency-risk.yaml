@@ -1,0 +1,28 @@
+schema_version: 1
+name: urgency-risk
+description: Urgency and operational risk
+model: jev-1.13.0
+state:
+  description: report describes a current operational issue.
+  format: json
+  example:
+    report: The settings label has a typo. Nothing is broken.
+questions:
+  urgency:
+    type: score
+    instructions: How urgently does `report` describe a need for attention?
+    criteria:
+    - Routine request; no current disruption or immediate deadline is described.
+    - Current impairment with a usable workaround described.
+    - Essential work is blocked with no workaround, or immediate intervention is explicitly
+      required.
+  risk:
+    type: score
+    instructions: What potential operational harm is explicitly supported by `report`?
+    criteria:
+    - Cosmetic or informational issue with no data loss described.
+    - Recoverable disruption; no irreversible loss or disclosure is described.
+    - Actual or imminent irreversible data loss or credential disclosure is described.
+thresholds: {}
+notes: Do not infer real deadlines or compute elapsed time in the model. Use code-derived
+  fields for timing. Synthetic examples are not safety certification.

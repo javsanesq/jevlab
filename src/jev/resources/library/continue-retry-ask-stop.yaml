@@ -1,0 +1,25 @@
+schema_version: 1
+name: continue-retry-ask-stop
+description: Continue, retry, ask, or stop
+model: jev-1.13.0
+state:
+  description: goal and observation describe the latest step; do not include a full
+    noisy trace.
+  format: json
+  example:
+    goal: Find a shipping policy and summarize it.
+    observation: Search found the policy link; its page has not been read.
+questions:
+  action:
+    type: choice
+    instructions: Given `goal` and `observation`, which next-step category fits the
+      evidence?
+    criteria:
+      continue_work: A successful partial step leaves a clear next step.
+      retry: A transient failure suggests repeating the same permitted step.
+      ask: Progress requires information only the user can supply.
+      stop: The goal is complete or the observation explicitly says further work is
+        prohibited.
+thresholds: {}
+notes: Retry budgets and timeouts are computed and enforced in code. This judgment
+  never authorizes tool execution or an unlimited loop.
