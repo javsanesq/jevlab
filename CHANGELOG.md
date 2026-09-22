@@ -2,6 +2,67 @@
 
 Versions describe the workbench application, not TypeSafe's model versions.
 
+## 0.9.0 — 2026-09-22
+
+Status: complete.
+
+- Run, edit, evaluate, batch and export project YAML without importing it into a
+  personal catalog. Save in place and reject conflicting external edits.
+- Save portable evaluation baselines; compare paired cases and enforce explicit
+  accuracy/regression limits. Failed quality checks use exit 5 with a full JSON report.
+- Freeze tuned thresholds, then verify on later disjoint cases with matching
+  design, gates and resolved model. Preserve design/dataset/model provenance.
+- Replace full-table exact-ID lookups and repeated job reads with indexed,
+  chunked access. A synthetic 1,000-row summary over 50,000 runs fell from
+  10.579 s to 0.019–0.026 s with identical totals; this is not an API benchmark.
+- Include the locally verified 0.8.1 repairs, focused developer README, archived
+  milestone notes, MIT license, community templates, security policy and a
+  reproducible recorded demo GIF. Update the guide and add a project walkthrough.
+
+Verification: `make lint` passed (Ruff, formatting, Pyright); `make test`
+passed with **786 offline tests** and one opt-in live test skipped. The installed
+editable command and an isolated Python 3.12 wheel were exercised outside the
+checkout. The wheel passed demo, guide, doctor, project planning/export, mocked
+SDK evaluations, baseline quality-failure reporting, project threshold saving,
+frozen-policy holdout verification, and portable comparison without the original
+source or profile. Full-history and artifact privacy scans passed; all 130 local
+documentation links resolve. **No live provider API calls were made.**
+
+Limits: outside developer demand remains unverified. Hashes detect exact reused
+states, not semantic overlap or statistical independence. Baseline/policy commands
+are CLI workflows. Project form saves normalize YAML comments/formatting. macOS
+and source installation remain supported; no PyPI publication or Linux expansion.
+
+## 0.8.1 — 2026-09-22
+
+Status: complete; local checkpoint, not published.
+
+- Open the workbench directly, with an optional tour and compact primary actions.
+  New templates start with one question and no automation threshold.
+- Repair question-type changes, new-template creation, and credential-mode setup.
+- Upgrade to TypeSafe SDK 0.7.1 for credential-safe transport errors. Exported
+  modules preserve the host application's logging configuration. Local SDK setup
+  failures retain their specific reason in history, CLI, and TUI, with no request sent.
+- Honor `--json` at the root, group, and command levels; describe and group CLI
+  commands by purpose.
+- Add the MIT license, package metadata, and contribution instructions. Focus the
+  README on the developer workflow and move historical checkpoint notes into a
+  documentation archive.
+
+Verification: `make lint` passed (Ruff, formatting, Pyright); `make test` passed
+with **744 offline tests** and one opt-in live test skipped. The installed editable
+command and a separate Python 3.12 wheel passed checks outside the checkout,
+including JSON flag placement, recorded demo, guide, diagnostics, and safe SDK
+configuration errors. An 80×24 installed TUI walkthrough covered Home, demo,
+one-question creation, Playground, and F2 details. Wheel/source inventories include
+the MIT license and current guide, and exclude private profiles and databases;
+117 local documentation links resolve. Provider regressions use official SDK
+mock transports and synthetic credentials. **No live API calls were made.**
+
+Limits: source installation remains the supported route; no PyPI or GitHub
+publication occurred. Linux support, project-owned design files, evaluation
+regression gates, and large-history query optimization remain later work.
+
 ## 0.8.0 — 2026-09-22
 
 Status: complete.
@@ -77,7 +138,7 @@ Status: complete.
   The command remains `jev` until the reviewed rename phase.
 
 Verification: Ruff, formatting and Pyright passed; **623 offline tests passed**
-and one opt-in live test was skipped. See [Phase 2](docs/FOLLOWUP_PHASE2.md).
+and one opt-in live test was skipped. See [Phase 2](docs/archive/FOLLOWUP_PHASE2.md).
 No live API calls were made in this phase; provider behavior is covered with
 mocks. Packaged and editable installations were exercised from outside the
 project with keys unset.
@@ -96,7 +157,7 @@ Verification: Ruff, formatting, and Pyright passed; 571 tests passed and one
 opt-in live test was skipped. The installed command was checked from a fresh shell
 outside the project. Two live requests reproduced the rejection (CLI and TUI),
 and two live requests verified the corrected model (CLI and TUI). All regression
-failure classes used mocks. See [Phase 1](docs/FOLLOWUP_PHASE1.md).
+failure classes used mocks. See [Phase 1](docs/archive/FOLLOWUP_PHASE1.md).
 
 ## 0.6.0 — 2026-09-21
 
@@ -114,7 +175,7 @@ one opt-in live test was skipped, on the development interpreter and independent
 on Python 3.12.1. The installed command, terminal/browser guide, source archive,
 wheel, and documented keyboard flows were verified outside the checkout. One
 real TypeSafe request tested the synthetic worked example; no coach request was
-made. See [Task C](docs/TASK_C.md) for exact evidence and unverified account/OS steps.
+made. See [Task C](docs/archive/TASK_C.md) for exact evidence and unverified account/OS steps.
 
 ## 0.5.0 — 2026-09-21
 
@@ -131,7 +192,7 @@ Status: complete. Source baseline preserved before work on 0.6.0 began.
 Verification: Ruff and Pyright passed; 470 offline tests passed and one opt-in
 live test was skipped. The installed command was tested from a temporary directory, including
 TUI navigation and cancellation. No live API calls were made for this milestone.
-See [Task B](docs/TASK_B.md).
+See [Task B](docs/archive/TASK_B.md).
 
 The first public source baseline is based on the preserved 0.5.0 source snapshot.
 Publication preparation removes personal paths and local run identifiers from
@@ -153,7 +214,7 @@ historical records; their commands may differ from the current interface.
   with real requests using synthetic input.
 - Verification recorded 390 offline tests passing, one live test skipped, clean
   Ruff/Pyright checks, and installed-command checks outside the source directory.
-  See [Task A](docs/TASK_A.md) for the separate live-call evidence and limitations.
+  See [Task A](docs/archive/TASK_A.md) for the separate live-call evidence and limitations.
 
 ### 0.4.0 — 2026-09-20
 
@@ -161,7 +222,7 @@ historical records; their commands may differ from the current interface.
   server; lessons 6–10; retention and cleanup; and synthetic portfolio images.
 - Verification recorded 250 offline tests passing, one live test skipped, clean
   Ruff/Pyright checks, and installed-command checks from a temporary directory.
-  See [Phase 4](docs/PHASE4.md).
+  See [Phase 4](docs/archive/PHASE4.md).
 
 ### 0.3.0 — 2026-09-20
 
@@ -169,7 +230,7 @@ historical records; their commands may differ from the current interface.
   resumable batch processing, and side-by-side comparison.
 - Verification recorded 148 offline tests passing, one live test skipped, clean
   Ruff/Pyright checks, and installed-command checks from a temporary directory.
-  See [Phase 3](docs/PHASE3.md).
+  See [Phase 3](docs/archive/PHASE3.md).
 
 ### 0.2.0 — 2026-09-20
 
@@ -178,7 +239,7 @@ historical records; their commands may differ from the current interface.
 - Verification recorded 65 offline tests passing, one live test skipped, clean
   Ruff/Pyright checks, and installed-command checks from a temporary directory. Separate real
   TypeSafe calls used synthetic examples; coach authentication was not tested in
-  this milestone. See [Phase 2](docs/PHASE2.md).
+  this milestone. See [Phase 2](docs/archive/PHASE2.md).
 
 ### 0.1.0 — 2026-09-20
 
@@ -186,4 +247,4 @@ historical records; their commands may differ from the current interface.
   template editor, playground, visual results, and SQLite history.
 - Verification recorded 42 offline tests passing, one live test skipped, clean
   Ruff/Pyright checks, and installed-command checks from a temporary directory. No real TypeSafe
-  inference was made for this milestone. See [Phase 1](docs/PHASE1.md).
+  inference was made for this milestone. See [Phase 1](docs/archive/PHASE1.md).

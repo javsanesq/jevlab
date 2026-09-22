@@ -28,7 +28,7 @@ class ExportLanguage(StrEnum):
 
 @guarded
 def export(
-    template: str,
+    template: Annotated[str, typer.Argument(help="Saved template name or project YAML path.")],
     lang: Annotated[
         ExportLanguage, typer.Option(help="Standalone SDK code or framework adapter.")
     ] = ExportLanguage.python,
@@ -37,7 +37,7 @@ def export(
     ] = None,
     json_output: JsonFlag = False,
 ) -> None:
-    design = workbench().templates.load(template)
+    design = workbench().templates.load_reference(template)
     target = cast(Literal["python", "langchain", "pydantic-ai"], lang.value)
     source = export_template(design, lang=target)
     path = write_export(design, output, lang=target) if output else None

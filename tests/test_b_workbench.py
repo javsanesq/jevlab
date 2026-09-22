@@ -4,7 +4,7 @@ import json
 
 import pytest
 from conftest import MockEvaluator
-from textual.widgets import Button, Input, Select, Static, TextArea
+from textual.widgets import Button, Collapsible, Input, Select, Static, TextArea
 
 from jevlab.core.config import load_settings
 from jevlab.core.demo import load_demo
@@ -26,21 +26,21 @@ def test_new_settings_default_to_simple_mode_and_unfinished_tour() -> None:
     assert settings.ui_mode == "simple" and not settings.tour_completed
 
 
-async def test_more_options_reveals_features_without_changing_saved_mode(wb: Workbench) -> None:
+async def test_more_tools_reveals_features_without_changing_saved_mode(wb: Workbench) -> None:
     simple(wb)
     app = JevApp(wb)
     async with app.run_test(size=(100, 40)) as pilot:
         home = app.screen
         assert isinstance(home, Home) and home.has_class("simple-mode")
-        assert not home.query_one("#eval", Button).ancestors_with_self[1].display
-        home.query_one("#home-options", Button).focus()
+        tools = home.query_one("#home-tools", Collapsible)
+        assert tools.collapsed
+        tools.query_one("CollapsibleTitle").focus()
         await pilot.press("enter")
-        assert not home.has_class("simple-mode")
-        assert home.query_one("#eval", Button).ancestors_with_self[1].display
+        assert not tools.collapsed
+        assert home.query_one("#eval", Button).region.height > 0
         assert load_settings(wb.root).ui_mode == "simple"
-        await pilot.pause(0.3)  # Textual ignores a second activation during its button effect.
         await pilot.press("enter")
-        assert home.has_class("simple-mode")
+        assert tools.collapsed and home.has_class("simple-mode")
 
 
 async def test_explain_and_glossary_preserve_a_password_without_reading_it(wb: Workbench) -> None:
@@ -82,7 +82,8 @@ async def test_settings_changes_mode_and_keeps_hidden_advanced_values(wb: Workbe
         for field in ("anthropic_model", "openai_model", "retention_bytes", "max_retries"):
             assert wb.settings.model_dump()[field] == before[field]
         await pilot.press("escape")
-        assert app.screen.query_one("#eval", Button).ancestors_with_self[1].display
+        # Home's secondary tools stay optional in either saved display mode.
+        assert app.screen.query_one("#home-tools", Collapsible).collapsed
 
 
 async def test_confirmation_palette_cannot_change_pending_request_settings(wb: Workbench) -> None:
@@ -164,7 +165,7 @@ async def test_simple_question_editor_saves_choice_without_yaml(wb: Workbench) -
         await pilot.press("ctrl+s")
         assert app.screen is editor
         built = editor.build()
-        assert built.questions["question_4"].criteria == {
+        assert built.questions["question_2"].criteria == {
             "billing": "Payments and refunds.",
             "other": "All other requests.",
         }

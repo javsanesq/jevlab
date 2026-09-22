@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
-from textual.widgets import Button, Input, TextArea
+from textual.widgets import Button, Input, Select, TextArea
 from typer.testing import CliRunner
 
 from jevlab.cli.app import app as cli
@@ -68,6 +68,11 @@ async def test_nested_paste_keeps_editor_alive_and_preserves_unsaved_work(
             draft = "my_route"
         await app.push_screen(editor)
         await pilot.pause()
+        if kind == "template":
+            editor.query_one("#state-format", Select).value = "json"
+            editor.query_one("#state-example", TextArea).load_text(
+                '{"message": "Please refund the duplicate charge."}'
+            )
         editor.query_one(f"#{other}", Input).value = draft
         writing = editor.query_one(f"#{control}", TextArea)
         original = writing.text

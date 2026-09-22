@@ -1,0 +1,23 @@
+name: Workflow improvement
+description: Describe a developer task that JevLab could make easier.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe a concrete task and where the current workflow gets in the way.
+      placeholder: I want to review which labeled cases changed after editing one question.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you handle it today?
+      description: A manual step, script, or another tool helps explain the gap. It is fine to say you are blocked.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested change
+      description: Optional. Include how you would know it helped. A simpler existing flow can be better than a new command.

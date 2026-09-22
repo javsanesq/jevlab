@@ -1,0 +1,3 @@
+{"id":"duplicate-charge","state":"I was charged twice for my subscription. Please refund one charge.","expected":{"route":"billing"}}
+{"id":"upload-error","state":"The upload button gives an error whenever I select a PDF.","expected":{"route":"technical"}}
+{"id":"partnership","state":"Who can I contact about becoming a reseller?","expected":{"route":"other"}}

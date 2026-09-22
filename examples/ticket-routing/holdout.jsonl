@@ -1,0 +1,3 @@
+{"id":"invoice-copy","state":"Please send me a copy of my latest invoice.","expected":{"route":"billing"}}
+{"id":"broken-search","state":"Search returns an empty page even for documents I can see in my account.","expected":{"route":"technical"}}
+{"id":"press-contact","state":"I am preparing an article and would like to speak to your press contact.","expected":{"route":"other"}}

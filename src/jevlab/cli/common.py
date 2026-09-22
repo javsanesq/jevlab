@@ -22,7 +22,21 @@ from jevlab.presentation import human_error
 
 console = Console()
 stderr = Console(stderr=True)
-JsonFlag = Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON; never prompt.")]
+
+
+def inherit_json(ctx: typer.Context, value: bool) -> bool:
+    """Resolve group flags while parsing, without process-global output state."""
+    parent = ctx.parent
+    while parent is not None:
+        value = value or bool(parent.params.get("json_output"))
+        parent = parent.parent
+    return value
+
+
+JsonFlag = Annotated[
+    bool,
+    typer.Option("--json", help="Emit machine-readable JSON; never prompt.", callback=inherit_json),
+]
 P = ParamSpec("P")
 R = TypeVar("R")
 _verbose: ContextVar[bool] = ContextVar("jevlab_verbose_errors", default=False)

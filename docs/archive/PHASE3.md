@@ -2,12 +2,12 @@
 
 > Historical checkpoint: commands and measured results below describe that release.
 > Since 0.8.0, the app is JevLab and the command is `jevlab`. Use the
-> [current guide](GUIDE.md) for installation, commands, and existing-data compatibility.
+> [current guide](../GUIDE.md) for installation, commands, and existing-data compatibility.
 
 Completed 2026-09-20. Phase 4 has not started.
 
 > Historical checkpoint: features, commands, and verification below describe this
-> milestone as recorded. See the [current README](../README.md) for current usage.
+> milestone as recorded. See the [current README](../../README.md) for current usage.
 
 ## Delivered
 
@@ -65,7 +65,7 @@ The planning/inspection/tuning commands above are local. `eval run`, `batch`,
 when you want to persist the previewed gate. The bundled fixture illustrates the
 workflow; it is not evidence of model performance.
 
-See the [README](../README.md#evaluate-tune-batch-and-compare) for dataset schemas,
+See the [README](../REFERENCE.md#evaluate-tune-batch-and-compare) for dataset schemas,
 export, cost controls, concurrency, resume, and comparison commands.
 
 ## Verification
@@ -109,6 +109,6 @@ export, cost controls, concurrency, resume, and comparison commands.
 - Automatic retention, export modules, the local server, remaining lessons, and
   portfolio media remain Phase 4.
 
-Decisions D25–D33 are recorded in [DECISIONS.md](DECISIONS.md). The defaults above
+Decisions D25–D33 are recorded in [DECISIONS.md](../DECISIONS.md). The defaults above
 are adjustable choices; no additional approval is needed to use Phase 3. Stop at
 this checkpoint and wait for the user's Phase 4 go-ahead.

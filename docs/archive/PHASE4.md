@@ -2,12 +2,12 @@
 
 > Historical checkpoint: commands and measured results below describe that release.
 > Since 0.8.0, the app is JevLab and the command is `jevlab`. Use the
-> [current guide](GUIDE.md) for installation, commands, and existing-data compatibility.
+> [current guide](../GUIDE.md) for installation, commands, and existing-data compatibility.
 
 Completed 2026-09-20. This completes all four requested phases.
 
 > Historical checkpoint: features, commands, and verification below describe this
-> milestone as recorded. See the [current README](../README.md) for current usage.
+> milestone as recorded. See the [current README](../../README.md) for current usage.
 
 ## Delivered
 
@@ -38,7 +38,7 @@ jev doctor --json
 
 Use a new `.py` output path; export refuses to overwrite files. Generated code
 requires `typesafe-sdk==0.7.0` and a `TYPESAFE_API_KEY` in the receiving process.
-Framework installation examples are in [INTEGRATIONS.md](INTEGRATIONS.md).
+Framework installation examples are in [INTEGRATIONS.md](../INTEGRATIONS.md).
 
 Start the local API:
 
@@ -51,7 +51,7 @@ jev serve
 The process binds only to `127.0.0.1:8766`; Ctrl+C stops it. Set the same separate
 local token in your client. Health checks and authenticated template listings are
 free local operations. `POST /templates/<name>/run` makes a real billable call;
-see the [README client example](../README.md#local-http-api).
+see the [README client example](../REFERENCE.md#local-http-api).
 
 Reproduce the synthetic portfolio images without keys or calls:
 
@@ -101,5 +101,5 @@ uv run python scripts/capture_portfolio.py
   establish real model performance or deployment readiness.
 - No new paid API or coach requests were made during Phase 4 verification.
 
-Decisions D34–D41 are in [DECISIONS.md](DECISIONS.md). No further decisions require
+Decisions D34–D41 are in [DECISIONS.md](../DECISIONS.md). No further decisions require
 confirmation; the original four-phase build is complete.

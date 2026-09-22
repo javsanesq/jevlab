@@ -120,7 +120,7 @@ def plan_lesson(
 ) -> None:
     wb = workbench()
     plan = exercise_plan(
-        wb, lesson(lesson_id), wb.templates.load(template), selected_fields(fields)
+        wb, lesson(lesson_id), wb.templates.load_reference(template), selected_fields(fields)
     )
     emit(plan.model_dump()) if json_output else console.print(Text(plan.model_dump_json(indent=2)))
 
@@ -135,7 +135,7 @@ def grade_lesson(
     json_output: JsonFlag = False,
 ) -> None:
     wb, item = workbench(), lesson(lesson_id)
-    design = wb.templates.load(template)
+    design = wb.templates.load_reference(template)
     plan = exercise_plan(wb, item, design, selected_fields(fields))
     if interactive(json_output):
         yes = confirm_spend(
@@ -414,7 +414,7 @@ def design_from_intent(
 @guarded
 def critique_template(template: str, json_output: JsonFlag = False) -> None:
     wb = workbench()
-    design = wb.templates.load(template)
+    design = wb.templates.load_reference(template)
     confirm_spend(
         estimate_coach(wb.settings, {"template": design.model_dump(mode="json")}),
         machine=json_output,

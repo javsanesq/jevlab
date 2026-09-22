@@ -2,12 +2,12 @@
 
 > Historical checkpoint: commands and measured results below describe that release.
 > Since 0.8.0, the app is JevLab and the command is `jevlab`. Use the
-> [current guide](GUIDE.md) for installation, commands, and existing-data compatibility.
+> [current guide](../GUIDE.md) for installation, commands, and existing-data compatibility.
 
 Completed 2026-09-20. Phase 3 has not started.
 
 > Historical checkpoint: features, commands, and verification below describe this
-> milestone as recorded. See the [current README](../README.md) for current usage.
+> milestone as recorded. See the [current README](../../README.md) for current usage.
 
 ## Delivered
 
@@ -100,6 +100,6 @@ exercise threshold, and top-level field filtering. They are teaching exercises.
 Full dataset import, evals, calibration, threshold tuning, batch, and compare remain
 Phase 3. Export/server, the remaining lessons, and retention/cleanup remain Phase 4.
 
-See decisions D17–D24 in [DECISIONS.md](DECISIONS.md). No additional confirmation is
+See decisions D17–D24 in [DECISIONS.md](../DECISIONS.md). No additional confirmation is
 needed to use Phase 2; choosing a coach is optional setup. Stop here for the user's
 Phase 3 go-ahead.

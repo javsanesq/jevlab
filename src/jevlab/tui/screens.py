@@ -14,6 +14,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import (
     Button,
     Checkbox,
+    Collapsible,
     DataTable,
     Footer,
     Header,
@@ -46,6 +47,7 @@ class ExplainedResult(Static):
 
 
 class Home(WorkbenchScreen):
+    compact_fields = True
     BINDINGS = [
         *WorkbenchScreen.BINDINGS,
         Binding("ctrl+n", "new", "New"),
@@ -55,14 +57,11 @@ class Home(WorkbenchScreen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with VerticalScroll(classes="page"):
+        with VerticalScroll(classes="page compact-page", id="home-page"):
             yield Static("JEVLAB / WORKBENCH", classes="eyebrow")
-            yield Static("Turn information into a clear choice.", classes="headline")
             yield Static(
-                "Choose a template (a saved set of questions), add information, "
-                "and see the answers. "
-                "Tab moves between items. Ctrl+E explains the selected item.",
-                classes="muted",
+                "Design, inspect, and test Jev decisions. Enter opens a template; Ctrl+E explains.",
+                classes="workspace-hint",
             )
             if self.wb.profile_notice:
                 yield Static(self.wb.profile_notice, classes="muted", markup=False)
@@ -73,27 +72,26 @@ class Home(WorkbenchScreen):
                 "support",
             )
             yield DataTable(id="template-table", cursor_type="row", zebra_stripes=False)
-            yield Static("", id="home-summary", markup=False)
             with Horizontal(classes="buttons"):
-                yield Button("Try template", id="playground", variant="primary")
+                yield Button("Open", id="playground", variant="primary")
                 yield Button("Edit", id="edit")
                 yield Button("New", id="new")
-                yield Button("Past results", id="history")
+                yield Button("Demo", id="demo")
+                yield Button("History", id="history")
                 yield Button("Settings", id="settings")
-            with Horizontal(classes="buttons"):
-                yield Button("Learn", id="learn")
-                yield Button("Examples", id="library")
-                yield Button("Recorded demo", id="demo")
-                yield Button("Welcome tour", id="tour")
-            yield Button("More options", id="home-options", classes="options-toggle")
-            with Horizontal(classes="buttons advanced"):
-                yield Button("Coach advice", id="coach")
-                yield Button("Test accuracy", id="eval")
-                yield Button("Run many cases", id="batch")
-            with Horizontal(classes="buttons advanced"):
-                yield Button("Compare", id="compare")
-                yield Button("Export", id="export")
-                yield Button("Cleanup", id="cleanup")
+            with Collapsible(title="More tools", collapsed=True, id="home-tools"):
+                with Horizontal(classes="buttons"):
+                    yield Button("Evaluate", id="eval")
+                    yield Button("Compare", id="compare")
+                    yield Button("Batch", id="batch")
+                    yield Button("Export", id="export")
+                with Horizontal(classes="buttons"):
+                    yield Button("Examples", id="library")
+                    yield Button("Learn", id="learn")
+                    yield Button("Coach", id="coach")
+                    yield Button("Tour", id="tour")
+                    yield Button("Cleanup", id="cleanup")
+            yield Static("", id="home-summary", markup=False)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -229,6 +227,7 @@ class Home(WorkbenchScreen):
 
 
 class Playground(WorkbenchScreen):
+    compact_fields = True
     BINDINGS = [
         *WorkbenchScreen.BINDINGS,
         Binding("ctrl+r", "run", "Run Jev"),
@@ -241,6 +240,9 @@ class Playground(WorkbenchScreen):
         self.previous = previous
         self.busy = False
         self.baseline: tuple[str, str] = ("", "")
+
+    def template_context(self) -> str:
+        return f"PLAYGROUND / {self.design.name} · {self.design.model}"
 
     def compose(self) -> ComposeResult:
         example = self.previous.request["state"] if self.previous else self.design.state.example
@@ -255,7 +257,13 @@ class Playground(WorkbenchScreen):
             else str(example or "")
         )
         yield Header()
-        with VerticalScroll(classes="page"):
+        yield Static(self.template_context(), id="play-context", markup=False)
+        with Horizontal(classes="workspace-actions"):
+            yield Button("Get answers", id="run-jev", variant="primary")
+            yield Button("Load file", id="load-state")
+            yield Button("Inspect design", id="inspect-design", classes="advanced")
+            yield Button("Cancel request", id="cancel-run", disabled=True)
+        with VerticalScroll(classes="page compact-page"):
             yield Static("TRY A TEMPLATE / ask Jev about your information", classes="eyebrow")
             names = self.wb.templates.names()
             if self.design.name not in names:
@@ -305,11 +313,6 @@ class Playground(WorkbenchScreen):
                 id="play-status",
                 markup=False,
             )
-            with Horizontal(classes="buttons"):
-                yield Button("Get answers", id="run-jev", variant="primary")
-                yield Button("Load file", id="load-state")
-                yield Button("Inspect design", id="inspect-design", classes="advanced")
-                yield Button("Cancel request", id="cancel-run", disabled=True)
             yield Button("More options", id="play-options", classes="options-toggle")
         yield Footer()
 
@@ -389,6 +392,7 @@ class Playground(WorkbenchScreen):
             return
         try:
             self.design = self.wb.templates.load(str(event.value))
+            self.query_one("#play-context", Static).update(self.template_context())
             self.query_one("#state-guidance", Static).update(self.design.state.description)
             self.query_one("#play-format", Select).value = self.design.state.format
             self.query_one("#play-status", Static).update(
@@ -722,6 +726,26 @@ class SettingsScreen(WorkbenchScreen):
     def on_mount(self) -> None:
         self.baseline = self.snapshot()
         self.validate_fields()
+        self.update_key_mode()
+
+    @on(Select.Changed, "#credential-mode")
+    def update_key_mode(self) -> None:
+        if not self.is_mounted:
+            return
+        environment = (
+            self.wb.settings.credential_mode == "environment"
+            or self.query_one("#credential-mode", Select).value == "environment"
+        )
+        self.query_one("#save-key", Button).label = (
+            "Save key and use Keychain" if environment else "Save key to Keychain"
+        )
+        self.query_one("#key-source", Static).update(
+            "Environment-only mode is active. Saving a key here switches credential lookup "
+            "to Keychain first, with environment variables as fallback."
+            if environment
+            else "Keys are read from macOS Keychain first, then environment variables. "
+            "Saving costs nothing and makes no API call."
+        )
 
     def validate_model(self) -> bool:
         if not self.is_mounted:
@@ -837,6 +861,7 @@ class SettingsScreen(WorkbenchScreen):
                 "Keychain is macOS's protected storage. Saving a key costs nothing "
                 "and does not verify it with the provider.",
                 classes="muted",
+                id="key-source",
             )
             yield Static("", id="settings-status", markup=False)
             yield Static("", id="config-model-validation", markup=False)
@@ -984,6 +1009,7 @@ class SettingsScreen(WorkbenchScreen):
             self.query_one("#coach-openai-model", Input).value = self.wb.settings.openai_model
             self.baseline = self.snapshot()
             self.apply_mode()
+            self.update_key_mode()
             self.query_one("#settings-status", Static).update(
                 "Settings saved. Existing templates keep their model pin."
             )
@@ -1006,14 +1032,39 @@ class SettingsScreen(WorkbenchScreen):
         value = key_input.value
         key_input.value = ""
         provider = cast(Provider, str(self.query_one("#key-provider", Select).value))
+        key_stored = False
         try:
             await asyncio.to_thread(Credentials().save, provider, value)
+            key_stored = True
+            # The button explicitly names this mode change before a key is entered.
+            unchanged = self.snapshot() == self.baseline
+            if self.wb.settings.credential_mode != "keychain":
+                self.wb.update_settings(
+                    self.wb.settings.with_updates({"credential_mode": "keychain"})
+                )
+            self.query_one("#credential-mode", Select).value = "keychain"
+            if unchanged:
+                self.baseline = self.snapshot()
+            self.update_key_mode()
             self.query_one("#settings-status", Static).update(
-                "Key stored in macOS Keychain. No API call was made."
+                "Key stored in macOS Keychain; Keychain lookup is active. No API call was made."
             )
         except JevError as error:
             self.query_one("#settings-status", Static).update(human_error(error))
             self.notify(human_error(error), severity="error")
+        except OSError:
+            error = JevError(
+                "file_error",
+                "The key was stored, but the credential source could not be saved."
+                if key_stored
+                else "The key could not be saved to Keychain.",
+                "Check that config.toml is writable, then select Keychain in settings and save. "
+                "The stored key will not be used while environment-only mode is active."
+                if key_stored
+                else "Unlock your login Keychain and try saving the key again.",
+            )
+            self.query_one("#settings-status", Static).update(human_error(error))
+            self.report_error(error)
 
     @work(group="doctor", exclusive=True, exit_on_error=False)
     async def run_doctor(self) -> None:

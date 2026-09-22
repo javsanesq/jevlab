@@ -18,13 +18,10 @@ stdout/stderr separation, and documented exit codes.
   and add a dated changelog entry describing the behavior, verification, and
   material limitations. Use `Status: complete` only after the work and required
   checks are actually complete. Keep unfinished entries clearly marked.
-- The owner now authorizes pushing and publishing verified phase checkpoints to
-  GitHub as work proceeds. Work in reviewable phases and stop after each one.
-  There must be no scheduled publisher; it was deleted at the owner's request.
-  The full-history privacy scrub must pass before publication, and PyPI publication
-  remains an owner-run step. A privacy blocker must be resolved before a push.
-  Never publish unfinished files, private state, or secrets, and never force-push
-  or move a published tag.
+- Follow the current task's publication boundary; a local verification pass does
+  not authorize a push or release. Use `docs/RELEASING.md` for authorized releases.
+  Privacy blockers must be resolved before publication. Never publish unfinished
+  files, private state, or secrets, and never force-push or move a published tag.
 - Do not fabricate earlier source snapshots. Versions before the preserved
   0.5.0 baseline have checkpoint documentation only.
 

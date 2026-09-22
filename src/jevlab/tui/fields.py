@@ -65,7 +65,10 @@ class Field(Vertical):
         simple = (
             self.simple
             if self.simple is not None
-            else (wb is None or wb.settings.ui_mode == "simple")
+            else (
+                (wb is None or wb.settings.ui_mode == "simple")
+                and not getattr(self.screen, "compact_fields", False)
+            )
         )
         self.apply_mode(simple)
         self.validate()

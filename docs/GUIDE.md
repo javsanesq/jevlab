@@ -1,6 +1,6 @@
 # The beginner's guide to JevLab
 
-For macOS · English · jevlab 0.8.0
+For macOS · English · jevlab 0.9.0
 
 The application is named **JevLab** and launches with `jevlab`. New installations
 keep personal files in `~/.jevlab/`. An upgrade keeps using an existing `~/.jev/`
@@ -10,7 +10,8 @@ remain available; nothing is moved or copied.
 Already have a working `jevlab` command? Start at [First run](#5-first-run).
 If you used the earlier `jev` command, run the installer in section 4 from your
 existing source folder. Keep that folder in place; its name need not change.
-For the shorter route, see the [Quickstart](QUICKSTART.md).
+For the shorter developer route, see the [Quickstart](QUICKSTART.md).
+The [documentation index](README.md) links to scripting and integration references.
 After installation, `jevlab guide` opens this guide in a **pager**, a reader for
 long terminal text. `jevlab guide --web` opens it as a page in your browser.
 
@@ -276,7 +277,7 @@ that this tool needs. uv keeps them in a separate environment for `jevlab`.
    **You should see:**
 
    ```text
-   jevlab 0.8.0
+   jevlab 0.9.0
    ```
 
    A later release may show a higher number. If the command is not found, see
@@ -295,15 +296,17 @@ In the steps below, **choose** means move to a button with Tab and press Enter.
 then confirm it with Enter. Ctrl+P opens the **command palette**, a searchable
 menu of actions. Escape closes a list or dialog before leaving its screen.
 
+The ordinary `jevlab` command opens Home directly. The tour is optional; this
+walkthrough uses it to explain account setup and the recorded example.
+
 1. Run:
 
    ```sh
-   jevlab
+   jevlab tour
    ```
 
-   **You should see:** **Welcome to jevlab** on a first launch. If you already
-   completed or skipped it, the home screen appears instead. The repeatable
-   version of the tour is available with `jevlab tour` after leaving the app.
+   **You should see:** **Welcome to jevlab**. This command opens the tour whenever
+   you want it, including after you have completed it before.
 
    This is an abbreviated sketch, not an exact screenshot:
 
@@ -348,10 +351,13 @@ that service, such as TypeSafe.
 
 4. Choose **Save key to Keychain**.
 
+   If environment-only mode was selected earlier, this button says **Save key and
+   use Keychain** and explicitly switches the source when saving.
+
    **You should see:** a macOS permission request, or this status:
 
    ```text
-   Key stored in macOS Keychain. No API call was made.
+   Key stored in macOS Keychain; Keychain lookup is active. No API call was made.
    ```
 
 5. If macOS asks, allow this tool to access the key you are saving.
@@ -406,8 +412,8 @@ that service, such as TypeSafe.
 
 6. Choose **Finish**.
 
-   **You should see:** the home screen and the `support-triage` design. The tour
-   will not open automatically next time.
+   **You should see:** the home screen and the `support-triage` design. The normal
+   `jevlab` command always opens Home; `jevlab tour` opens this guidance again.
 
 ### Get help and leave safely
 
@@ -434,9 +440,10 @@ that service, such as TypeSafe.
    says to close that dialog first. Unsaved work gets a confirmation instead of
    being silently discarded.
 
-Simple mode is the default: fewer controls appear at first. **More options**
-reveals advanced controls. Expert mode shows those controls from the start.
-Both modes have the same capabilities. Settings contains the mode switch.
+Home keeps the common actions visible; **More tools** contains secondary tools.
+Entry screens keep explanations under **Field help**, and Ctrl+E explains any
+focused control. Existing Simple and Expert preferences remain available in
+Settings for other screens; both have the same capabilities.
 
 ## 6. Understanding what you are looking at
 
@@ -477,7 +484,7 @@ with known answers is how you learn whether to trust a design.
 
 ### Automatic use and human review
 
-A **threshold** is a cutoff saved in a template. The starter design requires
+A **threshold** is a cutoff saved in a template. The bundled `support-triage` design requires
 Choice and Score confidence of at least 0.85 for automatic use. Its Noul rule
 uses yes at 0.90 or above, no at 0.10 or below, and review between them.
 These are teaching defaults, not tested guarantees for your work.
@@ -581,22 +588,21 @@ is saved; no support ticket was sent and no payment was refunded.
 
 ## 8. Making your own template
 
-We will create `my-message-sorter`, starting from the built-in support design.
-The New screen starts with that design, not an empty page. We will make its
-question more explicit and describe the billing option in our own words.
-The other two questions and their example cutoffs stay visible for practice.
-Saving a template is free.
+We will create `my-message-sorter`, starting with one example Choice question.
+The New screen includes three answer options: billing, technical, and other.
+We will make its wording more explicit and describe the billing option in our
+own words. The input is plain text. Every answer starts with a recommendation
+for human review, until you choose a threshold. Saving a template is free.
 
 In these forms, Tab finds the next field. A one-line field uses **Ctrl+Shift+A**
 to select its entire contents. A multi-line writing box uses **F7** to select
 all; on some Macs the key combination is **Fn+F7**. Ctrl+A moves to the start
 of a line here; it does not select everything.
 
-Each field has a name, a short explanation, and an example. Simple mode shows
-that help beside the field. Expert mode keeps it under **Field help**, which
-can be expanded. Invalid entries show a correction beside the field while you
-edit. The Save button stays unavailable until the form is valid. Ctrl+E gives
-a longer explanation of the focused field without using the text you entered.
+Each field has a name and an example. Expand **Field help** for its description.
+Invalid entries show a correction beside the field while you edit. The Save
+button stays unavailable until the form is valid. Ctrl+E gives a longer
+explanation of the focused field without using the text you entered.
 
 1. Run:
 
@@ -616,7 +622,7 @@ a longer explanation of the focused field without using the text you entered.
 
    **You should see:** the current description selected.
 
-4. Type `Sort customer messages and spot refund requests.`
+4. Type `Choose the team that should handle a customer message.`
 
    **You should see:** that description in the field.
 
@@ -644,11 +650,11 @@ a longer explanation of the focused field without using the text you entered.
 10. Paste this wording:
 
     ```text
-    Which team should handle the main request in ticket.message? Judge the customer's requested help, not passing mentions of another topic.
+    Which team should handle the main request in this message? Judge the customer's requested help, not passing mentions of another topic.
     ```
 
-    **You should see:** that question in the writing box. `ticket.message`
-    points to the customer's words in the example; it is not a command.
+    **You should see:** that question in the writing box. The message itself is
+    supplied later in Playground; it does not belong inside this question.
 
 11. Move focus to **Answer name 1 — when to use it**, below `billing`.
 
@@ -689,13 +695,15 @@ a longer explanation of the focused field without using the text you entered.
     jevlab
     ```
 
-    **You should see:** `my-message-sorter` in the list. It can be tried using
-    the same steps as section 7; starting another run creates another charge.
+    **You should see:** `my-message-sorter` in the list. Open it as in section 7,
+    but paste the customer's message as plain text without JSON braces. Starting
+    another run creates another charge.
 
 Your design is saved as a **YAML** file, a readable text format with labels and
-indented lines. You do not have to edit that file yourself. Its example is still
-JSON, and its cutoffs are still the starter cutoffs. Clearer wording is a design
-hypothesis; testing several known examples is how you find out whether it helps.
+indented lines. You do not have to edit that file yourself. Its example is plain
+text, so paste the customer's words directly when trying it. No automatic-use
+threshold has been set. Clearer wording is a design hypothesis; testing several
+known examples is how you find out whether it helps.
 
 ## 9. Other features
 
@@ -984,6 +992,10 @@ that token must not be your TypeSafe key.
 
    **You should see:** the terminal prompt again. The server has stopped.
 
+For developers keeping designs with their code, the [project workflow](PROJECTS.md)
+explains direct YAML editing, saved comparison baselines, and testing thresholds
+on separate cases. These advanced CLI tools can be ignored while learning the basics.
+
 ## 10. Troubleshooting
 
 The normal error shape is **What happened / Why / Next**. It avoids a
@@ -999,7 +1011,7 @@ Older saved failures may not contain details that earlier versions discarded.
 | Symptom | What it means and how to fix it |
 | --- | --- |
 | `command not found: jevlab` | The shell cannot find the installed command. **1.** Run `uv tool update-shell`. You should see an update or already-configured message. **2.** Open a new Terminal window. You should see a new prompt. **3.** Run `jevlab --version`. You should see its version. If no installation exists, section 4 provides the numbered installation steps. |
-| `command not found: jev` after an upgrade | The workbench command has changed. **1.** Run `jevlab --version`. You should see `jevlab 0.8.0` or a later version. Use `jevlab` for the other commands in this guide. |
+| `command not found: jev` after an upgrade | The workbench command has changed. **1.** Run `jevlab --version`. You should see `jevlab 0.9.0` or a later version. Use `jevlab` for the other commands in this guide. |
 | Old saved work seems missing | Two data folders may exist, or an environment variable may select a separate profile. A **profile** is the folder containing this app's saved work and settings. **1.** Run `jevlab doctor`. You should see the active folder beside **Local files**. **2.** If your earlier work is in `~/.jev/`, run `JEVLAB_HOME=~/.jev jevlab`. You should see the earlier templates and history; neither folder is merged or erased. |
 | `command not found: uv` | uv is absent or not on PATH. The installer steps in section 4 show how to add it and check its version. |
 | `cd: no such file or directory` | The source folder is not at `~/jevlab`. Section 4's source-folder steps show where to put it. A successful `cd ~/jevlab` then returns a prompt without an error. Older installations may still be at `~/jev`. |
@@ -1118,7 +1130,7 @@ keyboard; Fn changes the behavior of the function-key row on some Macs.
 
 ## 12. Where to get help
 
-The [project README](../README.md) has developer details. TypeSafe's
+The [command reference](REFERENCE.md) has developer details. TypeSafe's
 [official documentation](https://docs.typesafe.ai) describes the model, and its
 [quickstart](https://docs.typesafe.ai/introduction/quickstart) links to account
 setup. The [confidence page](https://docs.typesafe.ai/confidence) explains the
@@ -1170,4 +1182,4 @@ The guide itself is available locally through `jevlab guide`. It opens a **pager
 a reader for long terminal text. Space advances, `b` goes back, and `q` returns
 to the prompt with the default reader. `jevlab guide --web` opens a local HTML
 copy in your browser. Neither command makes a model request. Verification notes
-and the steps requiring a personal account are recorded in [TASK_C.md](TASK_C.md).
+and the steps requiring a personal account are recorded in [TASK_C.md](archive/TASK_C.md).

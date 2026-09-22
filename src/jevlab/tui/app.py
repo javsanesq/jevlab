@@ -64,14 +64,16 @@ class JevApp(App[None]):
         self.push_screen(Home(self.wb))
         if self.wb.profile_notice:
             self.notify(self.wb.profile_notice, title="Existing profile", timeout=15)
-        if self.start == "tour" or (self.start == "home" and not self.wb.settings.tour_completed):
+        if self.start == "tour":
             self.push_screen(TourScreen(self.wb))
         elif self.start == "demo":
             self.push_screen(DemoScreen(self.wb))
         elif self.start == "glossary":
             self.push_screen(Glossary())
         elif self.start == "edit" and self.template_name:
-            self.push_screen(TemplateEditor(self.wb, self.wb.templates.load(self.template_name)))
+            self.push_screen(
+                TemplateEditor(self.wb, source=self.wb.templates.resolve(self.template_name))
+            )
         elif self.start == "new":
             self.push_screen(TemplateEditor(self.wb, name=self.template_name))
         elif self.start == "learn":
@@ -297,11 +299,10 @@ class JevApp(App[None]):
                 screen.action_critique,
             )
             if screen.original_name:
-                name = screen.original_name
                 yield SystemCommand(
                     "Playground",
                     "Try the last saved design",
-                    lambda: self.push_screen(Playground(self.wb, self.wb.templates.load(name))),
+                    lambda: self.push_screen(Playground(self.wb, screen.saved_template())),
                 )
         if isinstance(screen, Playground):
             yield SystemCommand(

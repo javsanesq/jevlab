@@ -15,6 +15,7 @@ from jevlab.tui.fields import Field
 
 
 class WorkbenchScreen(Screen[None]):
+    compact_fields = False
     BINDINGS = [
         Binding("escape", "back", "Back"),
         Binding("f1", "help", "Help"),
@@ -36,7 +37,7 @@ class WorkbenchScreen(Screen[None]):
         simple = self.wb.settings.ui_mode == "simple"
         self.set_class(simple and not self.options_revealed, "simple-mode")
         for field in self.query(Field):
-            field.apply_mode(simple)
+            field.apply_mode(simple and not self.compact_fields)
         for button in self.query(".options-toggle").results(Button):
             button.display = simple
             button.label = "Fewer options" if self.options_revealed else "More options"

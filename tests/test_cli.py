@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from jevlab.cli.app import app
@@ -66,3 +67,45 @@ def test_no_plaintext_config_keys() -> None:
     result = runner.invoke(app, ["config", "--set", "api_key=never-store-this", "--json"])
     assert result.exit_code == 2
     assert "never-store-this" not in result.stdout
+
+
+@pytest.mark.parametrize("placement", ["root", "group", "command"])
+def test_json_inherits_through_nested_commands(placement: str, tmp_path: Path) -> None:
+    # Exporting bundled data is deterministic and must not launch an interactive UI.
+    args = ["library", "export-data", "support-routing", str(tmp_path / "cases.jsonl")]
+    args.insert({"root": 0, "group": 1, "command": len(args)}[placement], "--json")
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["ok"] is True
+    assert result.stderr == ""
+
+
+@pytest.mark.parametrize("placement", ["root", "command"])
+def test_json_flag_preserves_specific_error_and_exit_code(placement: str) -> None:
+    save_settings(Path(os.environ["JEVLAB_HOME"]), Settings(credential_mode="environment"))
+    args = ["run", "support-triage", "--text", '{"ticket":{"message":"Refund me"}}']
+    args.insert(0 if placement == "root" else len(args), "--json")
+    result = runner.invoke(app, args)
+    assert result.exit_code == 3
+    envelope = json.loads(result.stdout)
+    assert envelope["schema_version"] == 1 and envelope["ok"] is False
+    assert envelope["error"]["code"] == "missing_key"
+    assert envelope["error"]["run_id"]
+    assert result.stderr == ""
+
+
+def test_global_json_never_opens_tui_or_leaks_into_next_invocation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_prompt(*args: object, **kwargs: object) -> None:
+        pytest.fail("JSON commands must never prompt")
+
+    monkeypatch.setattr("typer.confirm", unexpected_prompt)
+    monkeypatch.setattr("typer.prompt", unexpected_prompt)
+    machine = runner.invoke(app, ["--json", "demo"])
+    assert machine.exit_code == 0
+    assert json.loads(machine.stdout)["ok"] is True
+    human = runner.invoke(app, ["demo"])
+    assert human.exit_code == 0
+    assert "RECORDED EXAMPLE" in human.stdout
+    assert not human.stdout.startswith('{"schema_version"')

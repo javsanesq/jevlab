@@ -3,8 +3,8 @@
 Historical implementation plan approved on 2026-09-20. The original four build
 phases are complete. This document preserves the original names, structure, and
 schema plan; since 0.8.0 the app and command are `jevlab`. For current usage,
-see [README.md](../README.md) for the delivered commands and current limitations,
-[RESEARCH.md](RESEARCH.md) for API evidence, and [DECISIONS.md](DECISIONS.md) for choices.
+see [README.md](../../README.md) for the delivered commands and current limitations,
+[RESEARCH.md](../RESEARCH.md) for API evidence, and [DECISIONS.md](../DECISIONS.md) for choices.
 
 ## Architecture
 

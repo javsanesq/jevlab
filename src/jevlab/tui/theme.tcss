@@ -67,3 +67,18 @@ Field .field-description, Field .field-example { color: #8c98a7; }
 Field .field-error { color: #67d9e8; margin-bottom: 1; }
 Field .invalid-field { border: solid #67d9e8; }
 .result-actions { padding: 0 3; }
+
+/* Keep the main workspace usable in a standard 80 by 24 terminal. */
+.compact-page { padding: 0 2; }
+.compact-page .eyebrow { margin-bottom: 0; }
+.compact-page .muted { margin: 0; }
+.compact-page Field > Label { margin-top: 0; }
+.compact-page .buttons { margin: 0; }
+.workspace-actions { height: 3; padding: 0 2; }
+.workspace-hint { color: #8c98a7; }
+#home-page #template-table { height: 6; margin: 0; }
+#home-tools { padding: 0; margin: 0; border: none; }
+#home-tools > Contents { padding: 0; }
+#home-summary { color: #8c98a7; }
+#threshold-notice { color: #67d9e8; }
+#play-context { height: 1; padding: 0 2; color: #67d9e8; text-overflow: ellipsis; }

@@ -1,11 +1,14 @@
 [project]
 name = "jevlab"
-version = "0.8.0"
+version = "0.9.0"
 description = "A terminal workbench for TypeSafe Jev decisions"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Javi" }]
 dependencies = [
-  "typesafe-sdk==0.7.0",
+  "typesafe-sdk==0.7.1",
   "httpx2>=2.13,<3",
   "textual>=8,<9",
   "typer>=0.27,<0.28",
@@ -24,6 +27,11 @@ openai = ["openai>=3.16,<4"]
 
 [project.scripts]
 jevlab = "jevlab.cli.app:main"
+
+[project.urls]
+Repository = "https://github.com/javsanesq/jevlab"
+Documentation = "https://github.com/javsanesq/jevlab/tree/main/docs"
+Issues = "https://github.com/javsanesq/jevlab/issues"
 
 [build-system]
 requires = ["hatchling"]

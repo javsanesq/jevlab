@@ -23,7 +23,7 @@ The packaged artifacts are separately checked before publication.
 Since 0.8.0, the command and distribution are `jevlab`, with no installed `jev`
 shim. New profiles use `~/.jevlab/`; existing `~/.jev/` profiles remain in place
 and are used with a notice when no new profile exists. Existing Keychain entries
-remain readable. See the [upgrade notes](../README.md#upgrading-from-jev).
+remain readable. See the [upgrade notes](../REFERENCE.md#upgrading-from-jev).
 
 The 0.8.0 rename checkpoint passed Ruff, Pyright and 714 offline tests, with one
 live test skipped. Its audit checked all objects in the clean repository,
@@ -47,7 +47,7 @@ checkout before the release was published.
 
 The next release, 0.6.0, adds the English guide and its terminal/browser commands.
 Its detailed behavior and checks are recorded in [Task C](TASK_C.md). Earlier
-versions have dated checkpoint documents in the [changelog](../CHANGELOG.md),
+versions have dated checkpoint documents in the [changelog](../../CHANGELOG.md),
 but no recoverable source snapshots. No old tags were invented for them.
 
 ## Earlier download and CI checks
@@ -78,7 +78,7 @@ and assets are never moved or replaced; corrections need a new version.
 The scheduled publisher was deleted at the owner's request on 2026-09-21.
 Verified phase checkpoints are now pushed and released as part of development,
 then work stops for review. There is no background publication task.
-Full rules are in [RELEASING.md](RELEASING.md); PyPI publication remains owner-run.
+Full rules are in [RELEASING.md](../RELEASING.md); PyPI publication remains owner-run.
 
 ## Boundaries
 

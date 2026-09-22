@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem with the workbench or exported code.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include a small example using synthetic data. Never attach API keys, your profile database, or private inputs.
+        For a security issue, follow the [security policy](https://github.com/javsanesq/jevlab/blob/main/SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: JevLab version
+      description: Run jevlab --version, or give the commit if using a development checkout.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include macOS version, terminal app, and installation method. Add Python version if relevant.
+      placeholder: macOS, Apple Silicon, Terminal, editable uv installation
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened, and what did you expect?
+      placeholder: Changing a question type prevents me from saving the template; I expected to keep editing it.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact command or screen actions and a minimal template/state if needed.
+      placeholder: |
+        1. Open the built-in support-triage template.
+        2. Edit the route question.
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Relevant output or screenshot
+      description: Optional. Remove keys, personal paths, and private state before sharing. Say whether an API call occurred; do not make another paid call just to file a report.

@@ -56,19 +56,33 @@ templates_app = typer.Typer(invoke_without_command=True, help="Browse, create, a
 history_app = typer.Typer(
     invoke_without_command=True, help="Inspect recorded runs and rerun exact designs."
 )
-app.add_typer(templates_app, name="templates")
-app.add_typer(history_app, name="history")
-app.add_typer(learn_app, name="learn")
-app.add_typer(library_app, name="library")
-app.add_typer(coach_app, name="coach")
-app.add_typer(datasets_app, name="datasets")
-app.add_typer(eval_app, name="eval")
-app.command("batch")(batch)
-app.command("compare")(compare_command)
-app.command("export")(export)
-app.command("serve")(serve)
-app.command("clean")(clean)
-app.command("guide")(guide)
+app.add_typer(templates_app, name="templates", rich_help_panel="Workflow")
+app.add_typer(history_app, name="history", rich_help_panel="Workflow")
+app.add_typer(learn_app, name="learn", rich_help_panel="Learning and help")
+app.add_typer(library_app, name="library", rich_help_panel="Learning and help")
+app.add_typer(coach_app, name="coach", rich_help_panel="Learning and help")
+app.add_typer(datasets_app, name="datasets", rich_help_panel="Tools")
+app.add_typer(eval_app, name="eval", rich_help_panel="Workflow")
+app.command(
+    "batch", help="Run a dataset with concurrency and resumable progress.", rich_help_panel="Tools"
+)(batch)
+app.command(
+    "compare",
+    help="Compare two designs or model versions on one state.",
+    rich_help_panel="Workflow",
+)(compare_command)
+app.command(
+    "export",
+    help="Generate a standalone SDK module from a saved template.",
+    rich_help_panel="Workflow",
+)(export)
+app.command(
+    "serve", help="Expose saved templates through a local HTTP API.", rich_help_panel="Tools"
+)(serve)
+app.command("clean", help="Preview or apply history retention limits.", rich_help_panel="Tools")(
+    clean
+)
+app.command("guide", rich_help_panel="Learning and help")(guide)
 register_guidance(app)
 
 
@@ -93,17 +107,17 @@ def root(
         launch(workbench())
 
 
-@app.command()
+@app.command(help="Get Jev answers for a template and input state.", rich_help_panel="Workflow")
 @guarded
 def run(
-    template: str,
+    template: Annotated[str, typer.Argument(help="Saved template name or project YAML path.")],
     state: Annotated[str | None, typer.Option(help="File path, or - for stdin.")] = None,
     text: Annotated[str | None, typer.Option(help="Inline state text.")] = None,
     format: Annotated[str | None, typer.Option(help="Override state format: text or json.")] = None,
     json_output: JsonFlag = False,
 ) -> None:
     wb = workbench()
-    design = wb.templates.load(template)
+    design = wb.templates.load_reference(template)
     if (state is None) == (text is None):
         raise JevError(
             "state_required",
@@ -198,15 +212,15 @@ def template_new(
 @templates_app.command("edit")
 @guarded
 def template_edit(
-    name: str,
+    name: Annotated[str, typer.Argument(help="Saved template name or project YAML path.")],
     from_file: Annotated[Path | None, typer.Option("--from")] = None,
     json_output: JsonFlag = False,
 ) -> None:
     wb = workbench()
-    wb.templates.load(name)
+    source = wb.templates.resolve(name)
     if from_file:
-        design = fork_template(parse_template(read_text(from_file)), name)
-        path = wb.templates.save(design, overwrite=True)
+        design = fork_template(parse_template(read_text(from_file)), source.template.name)
+        path = wb.templates.save_source(source, design).path
         emit({"path": str(path)}) if json_output else typer.echo(f"Saved {path}")
     elif json_output:
         raise JevError(
@@ -308,7 +322,7 @@ def change_settings(wb: Workbench, values: dict[str, object]) -> None:
     wb.update_settings(updated)
 
 
-@app.command()
+@app.command(help="Configure credentials, models, and local preferences.", rich_help_panel="Tools")
 @guarded
 def config(
     json_output: JsonFlag = False,
@@ -486,7 +500,9 @@ def display_doctor(report: dict[str, object]) -> None:
     )
 
 
-@app.command()
+@app.command(
+    help="Check installation and credentials; live checks are opt-in.", rich_help_panel="Tools"
+)
 @guarded
 def doctor(
     json_output: JsonFlag = False,

@@ -22,6 +22,7 @@ from jevlab.cli.common import (
     verbose_errors,
     workbench,
 )
+from jevlab.cli.regression import register as register_regression
 from jevlab.cli.spending import confirm_spend, interactive
 from jevlab.core.compare import ComparisonReport, compare, comparison_plan
 from jevlab.core.errors import JevError
@@ -36,6 +37,7 @@ from jevlab.presentation import human_error
 
 datasets_app = typer.Typer(invoke_without_command=True, help="Register CSV/JSONL dataset paths.")
 eval_app = typer.Typer(invoke_without_command=True, help="Evaluate designs and tune review gates.")
+register_regression(eval_app)
 Concurrency = Annotated[int, typer.Option(min=1, max=32, help="Maximum simultaneous Jev calls.")]
 Rate = Annotated[
     float, typer.Option("--rate", min=0.01, max=100, help="Maximum new calls per second.")
@@ -127,7 +129,7 @@ def import_dataset(
 ) -> None:
     wb = workbench()
     result = BatchService(wb).register_dataset(
-        path.expanduser(), wb.templates.load(template), require_labels=True
+        path.expanduser(), wb.templates.load_reference(template), require_labels=True
     )
     emit(result.model_dump(mode="json")) if json_output else console.print(
         Text(f"Registered {result.rows:,} labeled rows at {result.path}\nSHA256 {result.sha256}")
@@ -162,11 +164,13 @@ def display_jobs(jobs: list[JobReport]) -> None:
     console.print(table)
 
 
-@eval_app.command("plan")
+@eval_app.command("plan", help="Validate cases and estimate cost without calling Jev.")
 @guarded
 def plan_evaluation(template: str, dataset: Path, json_output: JsonFlag = False) -> None:
     wb = workbench()
-    plan = BatchService(wb).plan(wb.templates.load(template), dataset.expanduser(), kind="eval")
+    plan = BatchService(wb).plan(
+        wb.templates.load_reference(template), dataset.expanduser(), kind="eval"
+    )
     emit(plan.model_dump(mode="json")) if json_output else console.print(
         Text(plan.model_dump_json(indent=2))
     )
@@ -299,7 +303,7 @@ def display_report(report: JobReport, machine: bool) -> None:
             )
 
 
-@eval_app.command("run")
+@eval_app.command("run", help="Evaluate a named design or project YAML on labeled cases.")
 @guarded
 def run_evaluation(
     template: str,
@@ -316,7 +320,7 @@ def run_evaluation(
 ) -> None:
     wb = workbench()
     service = BatchService(wb)
-    design = wb.templates.load(template)
+    design = wb.templates.load_reference(template)
     path = dataset.expanduser()
     plan = service.plan(
         design,
@@ -358,7 +362,7 @@ def run_evaluation(
         raise typer.Exit(4)
 
 
-@eval_app.command("show")
+@eval_app.command("show", help="Inspect saved metrics, calibration and confidently wrong cases.")
 @guarded
 def show_evaluation(job_id: str, json_output: JsonFlag = False) -> None:
     service = BatchService(workbench())
@@ -374,7 +378,7 @@ def show_evaluation(job_id: str, json_output: JsonFlag = False) -> None:
         display_report(report, False)
 
 
-@eval_app.command("tune")
+@eval_app.command("tune", help="Preview or save thresholds on tuning data; no API call.")
 @guarded
 def tune_evaluation(
     job_id: str,
@@ -385,6 +389,9 @@ def tune_evaluation(
     save: Annotated[
         bool, typer.Option("--save", help="Save the gate to the matching template.")
     ] = False,
+    template: Annotated[
+        str | None, typer.Option(help="Destination named template or project YAML when saving.")
+    ] = None,
     json_output: JsonFlag = False,
 ) -> None:
     service = BatchService(workbench())
@@ -424,7 +431,7 @@ def tune_evaluation(
         "note": "Empirical tuning on this dataset; verify on a separate holdout before deployment.",
     }
     if save:
-        updated = service.save_thresholds(job_id, {question: gate})
+        updated = service.save_thresholds(job_id, {question: gate}, template_reference=template)
         data.update(saved=True, template=updated.name)
     if json_output:
         emit(data)
@@ -472,7 +479,7 @@ def batch(
         previous = service.get(resume)
         if previous.kind != "batch":
             raise JevError("not_a_batch", "That job is an eval.", "Choose a batch job ID.")
-        design = wb.templates.load(template) if template else service.template(resume)
+        design = wb.templates.load_reference(template) if template else service.template(resume)
         path = input_path.expanduser() if input_path else Path(previous.dataset.path)
         target = (
             output.expanduser()
@@ -488,7 +495,7 @@ def batch(
                 "A new batch needs template, input, and output.",
                 "Use jevlab batch TEMPLATE --input data.jsonl --output results.jsonl.",
             )
-        design = wb.templates.load(template)
+        design = wb.templates.load_reference(template)
         path, target = input_path.expanduser(), output.expanduser()
     plan = service.plan(
         design, path, resume_id=resume, retry_failed=retry_failed, retry_unknown=retry_unknown
@@ -598,7 +605,10 @@ def compare_command(
             "Choose two templates and exactly one state source.",
             "Use jevlab compare LEFT RIGHT --state file.json or --text 'state'.",
         )
-    left_design, right_design = wb.templates.load(left), wb.templates.load(right)
+    left_design, right_design = (
+        wb.templates.load_reference(left),
+        wb.templates.load_reference(right),
+    )
     if left_model:
         left_design = Template.model_validate(left_design.model_dump() | {"model": left_model})
     if right_model:

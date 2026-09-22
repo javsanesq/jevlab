@@ -8,8 +8,9 @@ import json
 import math
 import os
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
+from itertools import batched
 from pathlib import Path
 from typing import Literal, cast
 from uuid import uuid4
@@ -170,14 +171,17 @@ class BatchService:
     def datasets(self) -> builtins.list[DatasetInfo]:
         return [DatasetInfo.model_validate(value) for value in self.wb.storage.datasets()]
 
-    def save_thresholds(self, job_id: str, gates: dict[str, Gate]) -> Template:
+    def save_thresholds(
+        self, job_id: str, gates: dict[str, Gate], *, template_reference: str | None = None
+    ) -> Template:
         saved = self.get(job_id)
         if saved.kind != "eval" or saved.evaluation is None:
             raise JevError(
                 "not_evaluated", "This job has no evaluation.", "Complete an eval first."
             )
         reference = self.template(saved.id)
-        current = self.wb.templates.load(reference.name)
+        source = self.wb.templates.resolve(template_reference or reference.name)
+        current = source.template
         if current.model_dump(exclude={"thresholds"}) != reference.model_dump(
             exclude={"thresholds"}
         ):
@@ -192,7 +196,7 @@ class BatchService:
             **{name: value.model_dump(mode="json") for name, value in gates.items()},
         }
         candidate = Template.model_validate(data)
-        self.wb.templates.save(candidate, overwrite=True)
+        self.wb.templates.save_source(source, candidate)
         return candidate
 
     def _effective_status(self, item: JobItem) -> ItemStatus:
@@ -399,17 +403,7 @@ class BatchService:
         descriptor, temporary = tempfile.mkstemp(prefix=".jevlab-output-", dir=destination.parent)
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-                source_rows = iter_dataset(
-                    Path(report.dataset.path), template, require_labels=report.kind == "eval"
-                )
-                for item, row in zip(self.rows(report.id), source_rows, strict=True):
-                    run: Run | None = None
-                    if item.run_id:
-                        try:
-                            run = self.wb.storage.get(item.run_id)
-                        except JevError:
-                            pass
-                    self._verify_row(row, item, run)
+                for row, item, run in self._row_results(report, template, self.rows(report.id)):
                     payload = {
                         "job_id": report.id,
                         "dataset_sha256": report.dataset.sha256,
@@ -434,18 +428,34 @@ class BatchService:
         finally:
             Path(temporary).unlink(missing_ok=True)
 
-    def _summarize(self, report: JobReport, items: dict[int, JobItem]) -> None:
+    def _row_results(
+        self, report: JobReport, template: Template, items: Iterable[JobItem]
+    ) -> Iterator[tuple[DatasetRow, JobItem, Run | None]]:
+        """Read final row answers in bounded chunks for verification and export."""
+        source_rows = iter_dataset(
+            Path(report.dataset.path), template, require_labels=report.kind == "eval"
+        )
+        for batch in batched(zip(items, source_rows, strict=True), 500):
+            runs = self.wb.storage.get_many(item.run_id for item, _ in batch if item.run_id)
+            for item, row in batch:
+                run = runs.get(item.run_id) if item.run_id else None
+                self._verify_row(row, item, run)
+                yield row, item, run
+
+    def _summarize(self, report: JobReport, items: dict[int, JobItem]) -> builtins.list[int]:
         report.succeeded = sum(item.status == "succeeded" for item in items.values())
         report.failed = sum(item.status == "failed" for item in items.values())
         report.unknown = sum(item.status in ("running", "unknown") for item in items.values())
         report.pending = report.total - report.succeeded - report.failed - report.unknown
         report.known_cost_nanousd = report.unknown_cost_runs = 0
         report.input_tokens = report.output_tokens = report.latency_ms = 0
-        for item in items.values():
-            for run_id in item.run_ids:
-                try:
-                    run = self.wb.storage.get(run_id)
-                except JevError:
+        latencies: list[int] = []
+        attempted_ids = (run_id for item in items.values() for run_id in item.run_ids)
+        for batch in batched(attempted_ids, 500):
+            runs = self.wb.storage.get_many(batch)
+            for run_id in batch:
+                run = runs.get(run_id)
+                if run is None:
                     report.unknown_cost_runs += 1
                     continue
                 report.known_cost_nanousd += run.cost_nanousd or 0
@@ -453,8 +463,11 @@ class BatchService:
                 report.input_tokens += run.input_tokens or 0
                 report.output_tokens += run.output_tokens or 0
                 report.latency_ms += run.latency_ms or 0
+                if run.latency_ms is not None:
+                    latencies.append(run.latency_ms)
+        return latencies
 
-    def _evaluation_totals(self, report: JobReport, items: dict[int, JobItem]) -> None:
+    def _evaluation_totals(self, report: JobReport, latencies: builtins.list[int]) -> None:
         """Outcome metrics use the latest row answer; billing includes every attempted call."""
         evaluation = report.evaluation
         assert evaluation is not None
@@ -463,15 +476,6 @@ class BatchService:
         evaluation.input_tokens = report.input_tokens
         evaluation.output_tokens = report.output_tokens
         evaluation.latency_total_ms = report.latency_ms
-        latencies: list[int] = []
-        for item in items.values():
-            for run_id in item.run_ids:
-                try:
-                    latency = self.wb.storage.get(run_id).latency_ms
-                except JevError:
-                    continue
-                if latency is not None:
-                    latencies.append(latency)
         if latencies:
             latencies.sort()
             evaluation.latency_mean_ms = sum(latencies) / len(latencies)
@@ -693,7 +697,7 @@ class BatchService:
                 if callable(close):
                     close()
                 report.finished_at = now()
-                self._summarize(report, items)
+                latencies = self._summarize(report, items)
                 # Save the durable outcome before secondary analysis or output can fail.
                 self._save(report, template)
                 if initialized:
@@ -713,20 +717,12 @@ class BatchService:
                                 "saved runs are preserved.",
                             )
                         pairs: list[tuple[DatasetRow, Run | None]] = []
-                        for row in iter_dataset(path, template, require_labels=kind == "eval"):
-                            item = items[row.index]
-                            run = None
-                            if item.run_id:
-                                try:
-                                    run = self.wb.storage.get(item.run_id)
-                                except JevError:
-                                    pass
-                            self._verify_row(row, item, run)
+                        for row, _, run in self._row_results(report, template, items.values()):
                             if kind == "eval":
                                 pairs.append((row, run))
                         if kind == "eval":
                             report.evaluation = evaluate_runs(template, pairs)
-                            self._evaluation_totals(report, items)
+                            self._evaluation_totals(report, latencies)
                         self._export(report, template)
                     except (JevError, OSError) as error:
                         if isinstance(error, JevError) and error.code == "dataset_changed":

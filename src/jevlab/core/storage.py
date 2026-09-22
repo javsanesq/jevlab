@@ -3,9 +3,10 @@
 import fcntl
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from itertools import batched
 from pathlib import Path
 from typing import cast
 
@@ -212,9 +213,14 @@ class Storage:
 
     def get(self, run_id: str) -> Run:
         with self.connect() as connection:
+            # Most callers already hold a complete ID. Do not combine equality
+            # with substr(): that forces a table scan even for exact UUIDs.
+            row = connection.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
+            if row is not None:
+                return self._decode(row)
             rows = connection.execute(
-                "SELECT * FROM runs WHERE id=? OR substr(id,1,?)=? LIMIT 2",
-                (run_id, len(run_id), run_id),
+                "SELECT * FROM runs WHERE substr(id,1,?)=? LIMIT 2",
+                (len(run_id), run_id),
             ).fetchall()
         if len(rows) != 1:
             raise JevError(
@@ -223,6 +229,26 @@ class Storage:
                 "Use jevlab history to find its full ID.",
             )
         return self._decode(rows[0])
+
+    def get_many(self, run_ids: Iterable[str]) -> dict[str, Run]:
+        """Fetch exact IDs in bounded SQL batches; omit records removed by retention.
+
+        Unlike interactive get(), this never interprets an ID as a prefix.
+        Callers can preserve their own ordering and repeated-attempt accounting.
+        """
+        unique_ids = tuple(dict.fromkeys(run_ids))
+        if not unique_ids:
+            return {}
+        runs: dict[str, Run] = {}
+        with self.connect() as connection:
+            # Stay below SQLite's historical 999-parameter limit.
+            for batch in batched(unique_ids, 500):
+                placeholders = ",".join("?" for _ in batch)
+                rows = connection.execute(f"SELECT * FROM runs WHERE id IN ({placeholders})", batch)
+                for row in rows:
+                    run = self._decode(row)
+                    runs[run.id] = run
+        return runs
 
     def template_for(self, run: Run) -> Template:
         with self.connect() as connection:

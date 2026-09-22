@@ -36,7 +36,9 @@ async def test_each_main_form_input_has_label_description_example_and_mode_help(
                 field = control.parent
                 assert field.label and field.description
                 assert field.example or (isinstance(control, Input) and control.password)
-                assert field.query_one(Collapsible).collapsed is (mode == "expert")
+                assert field.query_one(Collapsible).collapsed is (
+                    screen.compact_fields or mode == "expert"
+                )
                 if isinstance(control, Input) and not control.password:
                     assert control.placeholder
             app.pop_screen()
@@ -62,6 +64,7 @@ async def test_mode_toggle_and_help_keep_draft_values(wb: Workbench) -> None:
         await pilot.press("escape")
         wb.update_settings(wb.settings.with_updates({"ui_mode": "simple"}))
         editor.apply_mode()
+        # Compact workspaces keep the user's explicit help expansion in either mode.
         assert not field.query_one(Collapsible).collapsed
         assert editor.snapshot() == original
 
@@ -102,6 +105,7 @@ async def test_template_json_and_threshold_errors_clear_on_first_valid_edit(wb: 
     async with app.run_test() as pilot:
         editor = TemplateEditor(wb)
         await app.push_screen(editor)
+        editor.query_one("#state-format", Select).value = "json"
         example = editor.query_one("#state-example", TextArea)
         example.load_text('{"ticket":')
         await pilot.pause()
@@ -157,7 +161,7 @@ async def test_question_inline_duplicates_and_primitive_guidance(wb: Workbench) 
 async def test_duplicate_question_name_is_rejected_before_applying(wb: Workbench) -> None:
     app = JevApp(wb)
     async with app.run_test() as pilot:
-        editor = TemplateEditor(wb)
+        editor = TemplateEditor(wb, wb.templates.load("support-triage"))
         await app.push_screen(editor)
         editor.edit_question("impact")
         await pilot.pause()

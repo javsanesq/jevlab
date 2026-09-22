@@ -3,7 +3,9 @@
 import copy
 import importlib.util
 import json
+import logging
 import sys
+import traceback
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -11,7 +13,15 @@ from typing import Any
 import httpx2
 import pytest
 from conftest import RESPONSE, MockEvaluator
-from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score, TypeSafeClient
+from typesafe_sdk import (
+    AsyncTypeSafeClient,
+    Choice,
+    Noul,
+    Score,
+    TypeSafeAPIConnectionError,
+    TypeSafeClient,
+    TypeSafeError,
+)
 
 from jevlab.core.client import verify_response
 from jevlab.core.errors import JevError
@@ -45,6 +55,117 @@ def sdk_transport(body: dict[str, Any], requests: list[dict[str, Any]]) -> httpx
         return httpx2.Response(200, json=body)
 
     return httpx2.MockTransport(respond)
+
+
+_WIRE_LOGGERS = ("typesafe_sdk", "httpx2", "httpcore2", "httpx", "httpcore")
+
+
+def _logger_state() -> dict[str, tuple[object, ...]]:
+    return {
+        name: (
+            logger.disabled,
+            logger.level,
+            logger.propagate,
+            tuple(logger.handlers),
+            tuple(logger.filters),
+        )
+        for name in _WIRE_LOGGERS
+        for logger in [logging.getLogger(name)]
+    }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("fails", [False, True])
+async def test_export_preserves_host_logging_and_redacts_connection_errors(
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    asynchronous: bool,
+    fails: bool,
+) -> None:
+    # Synthetic credential deliberately echoed by the transport, never a real key.
+    credential = "offline-export-secret"
+    monkeypatch.setenv("TYPESAFE_API_KEY", credential)
+    caplog.set_level(logging.DEBUG)
+    for name in _WIRE_LOGGERS:
+        logger = logging.getLogger(name)
+        monkeypatch.setattr(logger, "disabled", False)
+        monkeypatch.setattr(logger, "level", logging.DEBUG)
+    before = _logger_state()
+    module = load_export(tmp_path, monkeypatch, design)
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        assert request.headers["authorization"] == f"Bearer {credential}"
+        if fails:
+            try:
+                raise ValueError(f"Underlying transport rejected {credential}")
+            except ValueError as cause:
+                error = httpx2.ConnectError(f"Rejected Bearer {credential}", request=request)
+                error.add_note(f"Transport detail: {credential}")
+                raise error from cause
+        return httpx2.Response(200, json=RESPONSE)
+
+    async def evaluate() -> Any:
+        options = {"transport": httpx2.MockTransport(respond), "max_retries": 0}
+        if asynchronous:
+            return await module.aevaluate("A synthetic billing ticket", **options)
+        return module.evaluate("A synthetic billing ticket", **options)
+
+    if fails:
+        with pytest.raises(TypeSafeAPIConnectionError, match="Connection error") as caught:
+            await evaluate()
+        assert credential not in str(caught.value)
+        assert credential not in repr(caught.value)
+        assert credential not in "".join(traceback.format_exception(caught.value))
+        assert caught.value.__context__ is None
+        cause = caught.value.__cause__
+        assert cause is not None
+        assert credential not in repr(cause)
+        assert credential not in str(getattr(cause, "__notes__", []))
+    else:
+        result = await evaluate()
+        assert result.response.choices["route"].choice == "billing"
+    assert len(requests) == 1
+    assert credential not in caplog.text
+    assert "https://api.typesafe.ai/v1/systemone" in caplog.text
+    assert _logger_state() == before
+    assert "import logging" not in export_template(design)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("credential", ["offline invalid-key", "offline\ninvalid-key", "offline-ñ"])
+async def test_export_rejects_malformed_credentials_without_transport_or_disclosure(
+    design: Template,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    asynchronous: bool,
+    credential: str,
+) -> None:
+    monkeypatch.setenv("TYPESAFE_API_KEY", credential)
+    caplog.set_level(logging.DEBUG)
+    module = load_export(tmp_path, monkeypatch, design)
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        pytest.fail("Malformed credentials must fail before a request is attempted.")
+
+    options = {"transport": httpx2.MockTransport(respond), "max_retries": 0}
+    message = "printable ASCII characters without whitespace"
+    with pytest.raises(TypeSafeError, match=message) as caught:
+        if asynchronous:
+            await module.aevaluate("A synthetic billing ticket", **options)
+        else:
+            module.evaluate("A synthetic billing ticket", **options)
+    assert requests == []
+    assert credential not in str(caught.value)
+    assert credential not in repr(caught.value)
+    assert credential not in "".join(traceback.format_exception(caught.value))
+    assert credential not in caplog.text
 
 
 def test_export_preserves_structured_rubrics_without_code_execution(

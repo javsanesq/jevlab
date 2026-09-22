@@ -1,15 +1,16 @@
 # Portable exports
 
-Verified on 2026-09-20 with `typesafe-sdk==0.7.0`, `langchain-core==1.6.3`, and
-`pydantic-ai-slim==2.46.0`. The tests execute generated code using those actual
-packages and mock only the HTTP transport. No paid calls are needed to export.
+The locked integration dependencies are `typesafe-sdk==0.7.1`,
+`langchain-core==1.6.3`, and `pydantic-ai-slim==2.46.0`. The tests execute generated
+code using those packages and mock only the HTTP transport. No paid calls are
+needed to export. See the [changelog](../CHANGELOG.md) for completed verification.
 
 ## Python
 
 ```sh
 jevlab export support-triage --lang python --output decision.py
 # In your own uv project:
-uv add 'typesafe-sdk==0.7.0'
+uv add 'typesafe-sdk==0.7.1'
 ```
 
 Supply `TYPESAFE_API_KEY` through your application's environment or secret manager.
@@ -60,7 +61,7 @@ and [retry policy](https://docs.typesafe.ai/sdk/python/api/retries).
 
 ```sh
 jevlab export support-triage --lang langchain --output decision_chain.py
-uv add 'typesafe-sdk==0.7.0' 'langchain-core==1.6.3'
+uv add 'typesafe-sdk==0.7.1' 'langchain-core==1.6.3'
 ```
 
 ```python
@@ -84,7 +85,7 @@ wraps the official SDK to keep the workbench's request and validation path.
 
 ```sh
 jevlab export support-triage --lang pydantic-ai --output decision_tool.py
-uv add 'typesafe-sdk==0.7.0' 'pydantic-ai-slim==2.46.0'
+uv add 'typesafe-sdk==0.7.1' 'pydantic-ai-slim==2.46.0'
 ```
 
 ```python
@@ -119,9 +120,10 @@ invalid state, and refusing existing files or symlinks. Standalone generated
 modules pass Pyright as well as the workbench's own checks.
 
 Only the receiving application needs framework packages; `jevlab` does not require
-them for exporting. Imports make no inference calls. Generated modules suppress
-SDK/HTTP wire logging and write no local history. Host framework tracing and
-callbacks are separate facilities that can record inputs and results; configure
-them deliberately before using sensitive state. No end-to-end paid agent run or
-third-party tracing backend was tested. Package versions are the tested snapshot,
+them for exporting. Imports make no inference calls. Generated modules leave
+host logger settings unchanged and write no local history. Logging configuration
+belongs to the host: SDK debug logging includes request and response bodies, so
+use it only with data you intend to record. Framework tracing and callbacks can
+also record inputs and results; configure them deliberately before using sensitive
+state. No end-to-end paid agent run or third-party tracing backend was tested. Package versions are the tested snapshot,
 not a guarantee of compatibility with future releases.

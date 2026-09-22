@@ -9,6 +9,16 @@ The model is still named **Jev**. Since 0.8.0, this separate workbench is named
 **JevLab** and launches with `jevlab`. Historical installation checks below retain
 the command and source-folder names used when they were performed.
 
+## SDK maintenance update — 2026-09-22
+
+The current dependency pin is **0.7.1**. The official
+[SDK changelog](https://docs.typesafe.ai/sdk/python/changelog) records early API-key
+validation and exclusion of key values from logged exceptions in the September 21
+patch. Exported modules use that patch and leave the host application's logger
+configuration unchanged. SDK debug logs can still contain request and response
+payloads; credential redaction does not make sensitive-state logging private.
+The sections below preserve the dated API investigation that informed the design.
+
 ## API and SDK
 
 The [quickstart](https://docs.typesafe.ai/introduction/quickstart) and
@@ -17,7 +27,7 @@ The [quickstart](https://docs.typesafe.ai/introduction/quickstart) and
 `AsyncTypeSafeClient` supplies the same operation asynchronously and fits the TUI.
 The direct endpoint is `https://api.typesafe.ai/v1/systemone`.
 
-The published SDK is **0.7.0**, supporting Python >=3.10. Source inspected at
+The initially inspected SDK was **0.7.0**, supporting Python >=3.10. Source inspected at
 [commit 2ce5c65](https://github.com/typesafe-ai/typesafe-sdk-python/tree/2ce5c65f13646cab6e6f782328194c9d85f3300a).
 It depends on **httpx2**, Pydantic, and Tenacity. Transport mocks must match that
 client, rather than assuming the older `httpx` package. Use an isolated uv project.
@@ -296,7 +306,7 @@ origins. OpenAI requests retain `store=False`; this is not a ZDR guarantee. Coac
 output remains validated advisory JSON; no provider is allowed to call tools or
 execute a Jev decision. Mocked HTTP tests inspect both actual SDK request paths.
 Live account results and installed-command verification are recorded in
-[TASK_A.md](TASK_A.md).
+[TASK_A.md](archive/TASK_A.md).
 
 The local `uv 0.12.9 tool install --help` and official
 [uv command reference](https://docs.astral.sh/uv/reference/cli/#uv-tool-install)
@@ -340,4 +350,4 @@ confirms the macOS shell installer. A fresh-shell check used the installed uv,
 preserved the existing coach extras, installed the new editable command, and
 tested it outside the project. Package verification additionally used a normal
 wheel, rebuilt from the source distribution, with the complete guide included.
-Task C's one real TypeSafe example and its limits are recorded in [TASK_C.md](TASK_C.md).
+Task C's one real TypeSafe example and its limits are recorded in [TASK_C.md](archive/TASK_C.md).

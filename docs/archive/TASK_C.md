@@ -2,19 +2,19 @@
 
 > Historical checkpoint: commands and measured results below describe that release.
 > Since 0.8.0, the app is JevLab and the command is `jevlab`. Use the
-> [current guide](GUIDE.md) for installation, commands, and existing-data compatibility.
+> [current guide](../GUIDE.md) for installation, commands, and existing-data compatibility.
 
 Completed: 2026-09-21. Application version: 0.6.0.
 
 ## Delivered
 
-- [GUIDE.md](GUIDE.md): the twelve requested sections, from opening Terminal to
+- [GUIDE.md](../GUIDE.md): the twelve requested sections, from opening Terminal to
   getting help. It defines terms, uses concrete examples and ASCII screen sketches,
   and pairs numbered actions with visible checks. It distinguishes recorded
   examples, actual decisions, local routing, and advisory coaching.
-- [QUICKSTART.md](QUICKSTART.md): a short path to installation, the free demo,
+- [QUICKSTART.md](../QUICKSTART.md): a short path to installation, the free demo,
   the tour, and a first confirmed live request.
-- [README.md](../README.md): a plain introduction and prominent guide links,
+- [README.md](../../README.md): a plain introduction and prominent guide links,
   followed by the developer and integration reference.
 - `jev guide`: an offline terminal reader. Space advances, `b` returns, and `q`
   exits the default pager. Redirected output is the complete Markdown document.
@@ -27,7 +27,7 @@ Completed: 2026-09-21. Application version: 0.6.0.
   Built wheels include that same guide, so normal installations need no checkout.
 
 No decision logic, exported code, credential values, or saved user preferences
-changed. Important choices are recorded in [DECISIONS.md](DECISIONS.md).
+changed. Important choices are recorded in [DECISIONS.md](../DECISIONS.md).
 
 ## Try it from any directory
 

@@ -16,9 +16,9 @@ from jevlab.rendering import render_run
 
 
 def register_guidance(app: typer.Typer) -> None:
-    app.command("demo")(demo)
-    app.command("tour")(tour)
-    app.command("glossary")(glossary)
+    app.command("demo", rich_help_panel="Workflow")(demo)
+    app.command("tour", rich_help_panel="Learning and help")(tour)
+    app.command("glossary", rich_help_panel="Learning and help")(glossary)
 
 
 @guarded

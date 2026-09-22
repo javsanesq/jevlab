@@ -1,99 +1,82 @@
-# JevLab quickstart
+# Quickstart
 
-Jev makes small judgments: choose a team, rate an issue, or estimate whether a
-message asks for a refund. This workbench lets you try those judgments and see
-their uncertainty. It does not send messages or issue refunds.
+Install from source, inspect a free recorded example, then run a real Jev decision.
+This guide assumes macOS and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+New to Terminal? Use the [beginner's guide](GUIDE.md). [All documentation](README.md).
 
-New to Terminal? Use the [complete beginner's guide](GUIDE.md). Already installed?
-Skip to step 4. The source folder should be `jevlab` inside your home folder;
-[installation instructions](GUIDE.md#4-installation) explain how to get it and uv.
-The command is **jevlab**. New data lives in `~/.jevlab/`; an upgrade keeps using
-an existing `~/.jev/` if no new folder exists, with a notice. Saved work and keys
-remain available. Keep an existing installation's source folder in place.
+## Install
 
-1. Run this in Terminal:
+```sh
+git clone https://github.com/javsanesq/jevlab.git
+cd jevlab
+make install
+jevlab --version
+```
 
-   ```sh
-   cd ~/jevlab
-   ```
+Expect `jevlab 0.9.0` or later. Keep the checkout: this is an editable installation.
+If the command is missing, run `uv tool update-shell` and open a new terminal.
+PyPI installation is not yet available. Existing users should keep their current
+checkout and follow the [upgrade notes](REFERENCE.md#upgrading-from-jev).
 
-   **You should see:** another prompt. A missing-folder error means the source
-   folder needs to be placed there first. For an older installation at `~/jev`,
-   use `cd ~/jev` instead.
+## See a result without a key
 
-2. Run:
+```sh
+jevlab demo
+```
 
-   ```sh
-   uv run python scripts/install.py
-   ```
+Expect **RECORDED EXAMPLE**, probability bars, and explanations. The values are
+synthetic teaching examples, not live Jev output. No key, request, or charge is
+involved. Press **Ctrl+Q** to return to your shell.
 
-   **You should see:** installation progress, then an installed `jevlab` executable.
-   Upgrading replaces the earlier workbench command; use `jevlab` from now on.
-   If the command is not found afterward, the full guide explains PATH setup.
+## Make a real request
 
-3. Run:
+Obtain a [TypeSafe API key](https://console.typesafe.ai/keys), then run:
 
-   ```sh
-   jevlab --version
-   ```
+```sh
+jevlab config
+```
 
-   **You should see:** `jevlab 0.8.0`, or a later version.
+Use the hidden key prompt; do not put the key in a command or file. The default
+credential mode stores it in macOS Keychain. `jevlab doctor` checks local setup
+without making a paid call.
 
-4. Run:
+```sh
+jevlab
+```
 
-   ```sh
-   jevlab demo
-   ```
+Home opens directly. Select `support-triage` and press **Enter**. Its Playground
+contains an example refund request; press **Ctrl+R** to send it to Jev.
+**This makes one billable call without a confirmation prompt.** The result shows
+answers, uncertainty, review routing, latency, tokens, and a usage-based cost
+estimate. It does not send a message or issue a refund.
 
-   **You should see:** **RECORDED EXAMPLE**, with bars and plain explanations.
-   Its values are authored teaching examples, not live Jev output. No key or
-   charge is involved. Tab moves between controls; Enter selects.
+For the same workflow in a script:
 
-5. Press Ctrl+Q.
+```sh
+printf '%s' '{"ticket":{"message":"I was charged twice. Please refund one charge."}}' \
+  | jevlab run support-triage --state - --json
+```
 
-   **You should see:** the terminal prompt.
+Expect one JSON envelope with `ok: true`, or a specific error and next step.
 
-6. Run:
+## Make a design and take it into code
 
-   ```sh
-   jevlab tour
-   ```
+From Home, press **Ctrl+N**. The new template starts with one Choice question and
+plain-text state. Edit its name and question, then press **Ctrl+S** to save.
+New designs request human review until you set and validate thresholds.
+The [guided example](GUIDE.md#8-making-your-own-template) walks through each field.
 
-   **You should see:** the welcome tour. Its Continue button leads to optional
-   key setup and an explained example. The [full guide](GUIDE.md#5-first-run)
-   spells out each tour step. A TypeSafe API key is a private account access
-   code; the tour's password field saves it in macOS Keychain. The remaining
-   steps below assume the tour is finished and you have left with Ctrl+Q.
+Export a saved design without calling an API:
 
-7. Run:
+```sh
+jevlab export support-triage --lang python --output decision.py
+```
 
-   ```sh
-   jevlab
-   ```
+Expect a new Python module. Existing files are never overwritten.
+[Integration instructions](INTEGRATIONS.md) explain dependencies and result handling.
 
-   **You should see:** the tour if unfinished, otherwise the home screen. Escape
-   skips the tour. The built-in design is called `support-triage`.
-
-8. Open `support-triage` with Enter when its row is focused.
-
-   **You should see:** the sample refund request in the playground.
-
-9. Press Ctrl+R when you want one real paid request.
-
-    **You should see:** the answer, probabilities, review recommendation, time,
-    token counts, and a cost estimate based on returned usage, or a clear setup
-    error. There is no price prompt for a single run. A valid TypeSafe key is needed.
-    The result is saved; no ticket or refund is sent.
-
-**Helpful keys:** Ctrl+E explains the focused item; Ctrl+G opens definitions;
-Escape goes back; Ctrl+Q quits. More options reveals advanced controls.
-Forms explain each field and show corrections while you edit. Expert mode keeps
-descriptions under **Field help**.
-
-**Free commands:** `jevlab demo` replays the example; `jevlab doctor` checks local setup;
-`jevlab guide` opens the full guide; `jevlab guide --web` opens a local browser copy.
-Confidence summarizes the spread of probabilities, not the chance of being right.
-Prices are estimates, not caps. JSON and piped commands retain their automation
-rules and should be treated as advanced.
-Batch and eval jobs still ask first. Their **Don't ask again** choices are saved
-separately only when you accept; `--yes` skips one job's prompt without saving.
+**Next:** [work with project YAML and regression baselines](PROJECTS.md),
+[evaluate labeled examples](REFERENCE.md#evaluate-tune-batch-and-compare),
+[inspect history](REFERENCE.md#cli-and-pipes), or run `jevlab tour` for optional guidance.
+**Keys:** Ctrl+P finds actions; Ctrl+E explains a control; Esc goes back; Ctrl+Q quits.
+Batch and eval have separate spend confirmations. Estimates are not spending caps.

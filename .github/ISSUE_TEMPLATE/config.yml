@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/javsanesq/jevlab/blob/main/docs/README.md
+    about: Setup, commands, integration examples, and troubleshooting.
+  - name: Security reporting
+    url: https://github.com/javsanesq/jevlab/blob/main/SECURITY.md
+    about: How to report a vulnerability without disclosing sensitive details publicly.

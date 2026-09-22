@@ -34,6 +34,8 @@ def human_error(error: JevError, *, verbose: bool = False) -> str:
         happened = "An unexpected problem stopped this action; its cause is not known."
     elif error.code in {"timeout", "connection"}:
         happened = "The online request could not complete."
+    elif error.code == "client_configuration":
+        happened = "The request could not start because the client settings are invalid."
     else:
         happened = "This action could not be completed."
     text = (

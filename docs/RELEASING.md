@@ -1,90 +1,53 @@
-# Releasing JevLab
+# Release checklist
 
-The owner has authorized publishing completed, verified phase checkpoints to
-GitHub as development proceeds, followed by a stop for review. There is no
-scheduled publisher; it was deleted at the owner's request on 2026-09-21.
-PyPI publication remains an owner-run step. That authorization covers routine publication of
-those versions. It does not make unfinished local edits a release, authorize
-publication of private data, or authorize force-pushing shared history.
+JevLab uses `vMAJOR.MINOR.PATCH` Git tags. A release is a verified source commit,
+not a version bump alone. Published tags and assets are immutable.
 
-## What makes a version ready
+## Verify the candidate
 
-1. Finish the intended change and its documentation. A partially implemented
-   task is not release-ready even if the current tests pass.
-2. Set the same application version in `pyproject.toml` and
-   `src/jevlab/__init__.py`, and update `uv.lock`. Do not reuse a published version.
-3. Add the version to [CHANGELOG.md](../CHANGELOG.md), describing the final behavior,
-   limitations, verification, and any actual live calls separately from mocks.
-4. Run `make lint` and `make test`. Both must pass. A skipped, explicitly opt-in
-   live test is expected; do not make paid API calls merely to publish a release.
-5. Run `make install` and verify the installed `jevlab` command from a directory
-   outside the source checkout, such as a temporary directory. Use an isolated profile without
-   keys for free demo, help, diagnostics, and JSON smoke checks. Also verify any
-   release-specific behavior. Record the commands and results in the checkpoint.
-6. Build and inspect distribution artifacts. They must contain the application
-   and its documented resources, including the guide when that feature exists.
-   Editable wheels pointing at a developer's filesystem are not release assets.
-7. Review the complete source diff and publication file inventory. Do not rely
-   on `.gitignore` alone: an already tracked private file stays tracked.
-8. Mark the changelog entry `Status: complete`, add the completion date, and link
-   its verification record. Commit the finished source, tests, and documentation.
+1. Finish the scoped change, regression tests, and documentation.
+2. Keep versions consistent in `pyproject.toml`, `src/jevlab/__init__.py`, and `uv.lock`.
+3. Add a dated [changelog entry](../CHANGELOG.md) describing behavior, limitations,
+   and verification. Leave unfinished work marked incomplete.
+4. Run `make lint` and `make test`. Live tests remain opt-in; a release does not
+   require paid API calls. Distinguish live checks from mocked verification.
+5. Run `make install` and check the installed command outside the checkout using
+   an isolated profile. Check demo, help, JSON output, and the changed behavior.
+6. Build distributions with `uv build --no-sources`. Inspect both wheel and source
+   archive: the guide and license must be present; private profiles, credentials,
+   databases, logs, caches, and editable-install paths must be absent.
+7. Review the complete diff and file inventory, including tracked files ignored
+   by `.gitignore`. Scan repository history and author metadata before publication.
+8. Mark the changelog entry complete only after these checks pass, then commit the
+   reviewed source and record its verification results.
 
-The release commit must contain that complete changelog entry and matching version
-metadata. A passing test run, version bump, or tag by itself is insufficient.
+Use synthetic data and clearly fake credentials in tests and screenshots. Exported
+templates contain examples and notes, so review them as source. Never publish a
+personal profile or assume that a passing test suite is a privacy scan. If a real
+key appears in history, treat it as compromised and rotate it before proceeding.
 
-## Public files and private state
+## Publish a GitHub release
 
-Publish reviewed source code, tests with fake credentials, original bundled
-datasets, documentation, and reproducible example images. Inspect files for real
-credential literals, private endpoints, personal paths, local run identifiers,
-private input states, and account-specific reports before staging them.
+Publication is a separate maintainer action and needs explicit authorization for
+the current work. Do not publish unfinished changes or bypass a privacy blocker.
 
-Never stage `~/.jevlab/` or a legacy `~/.jev/` profile, configuration containing
-credentials, Keychain material, environment files containing secrets, history
-databases or sidecars, logs,
-personal datasets, local outputs, virtual environments, or caches. Do not copy
-the uv cache into the repository. An exported template may contain private
-examples or notes; review it before publication too.
+1. Push the reviewed commit without force to the intended repository.
+2. Wait for CI to pass for that exact commit.
+3. Create its matching immutable version tag and GitHub release.
+4. Build attached distributions from the tagged commit, not another working tree.
+5. Confirm the remote tag, release notes, and artifacts match the tested source.
 
-Tests deliberately contain obvious fake key-shaped strings to exercise redaction.
-Their synthetic status should remain clear. Scan the entire history, including
-author metadata, before publishing. If it contains private information, prefer a
-fresh repository with a reviewed initial commit over rewriting published tags.
-The owner selected MIT; adding the license is part of the release-readiness phase.
+If an existing release needs a fix, publish a new version. Never move published
+tags, overwrite release assets, fabricate earlier snapshots, or repair divergence
+with a force-push. Report authentication or CI blockers instead.
 
-## Tags and GitHub releases
+## PyPI status
 
-Use `v` followed by the application version, for example `v0.5.0`. Each tag points
-at the exact verified release commit. Create a GitHub release for that tag with
-the matching changelog notes and verification limits. Any attached wheel or
-source archive must be built from that same commit.
+JevLab is not yet published on PyPI. Source installation is the supported route.
+PyPI publication remains an owner-run step after package-name access and the
+publishing workflow are prepared. Do not advertise `pip install jevlab` or
+`uv tool install jevlab` as working until the published package has been verified
+from a clean environment.
 
-Tags and published assets are immutable. If a release needs a fix, increment the
-version and publish the new commit. Do not move a tag, overwrite its assets,
-rewrite public history, or force-push. Check that the remote tag and release
-resolve to the intended commit after publishing.
-
-The 0.5.0 baseline was preserved before the 0.6.0 changes. Its public snapshot may
-include documentation redactions for personal paths and local run identifiers;
-the release notes disclose that preparation. Versions 0.1.0 through 0.4.1 have
-historical checkpoint documents but no retained source snapshots. Do not create
-old tags pointing at newer code or present metadata-only editable wheels as
-recoverable releases.
-
-## Publication during development
-
-After a checkpoint passes local checks and the privacy gate, push its reviewed
-commit to the expected repository without force. Wait for CI to pass for that
-exact commit before creating its immutable version tag and GitHub release.
-Verify that the remote tag and release point to the tested source.
-
-Do not publish unfinished changes, move old tags, or silently repair a diverged
-remote. Report authentication, CI, or privacy blockers. Publication does not
-change the user's keys, models, preferences, or saved history.
-
-The current repository is [jevlab](https://github.com/javsanesq/jevlab), starting
-with one clean initial commit authored as Javi. Its first checkpoint is 0.7.0;
-it includes the verified 0.6.1 error fixes. Earlier development records remain
-as historical documentation. Since 0.8.0, the package and command are `jevlab`;
-there is no installed `jev` shim. Existing profiles and Keychain entries are
-preserved through compatibility reads rather than copying private data.
+Earlier repository and release milestones are preserved in the
+[publication archive](archive/PUBLICATION.md).

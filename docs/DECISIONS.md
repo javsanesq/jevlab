@@ -137,7 +137,7 @@ interactive acknowledgment that later client requests can incur charges; its
 existing authenticated HTTP and per-request budget contracts remain unchanged.
 
 Verification and the no-live-calls boundary for this task are recorded in
-[TASK_B.md](TASK_B.md).
+[TASK_B.md](archive/TASK_B.md).
 
 ## Task C and public versions (2026-09-21)
 
@@ -150,7 +150,7 @@ Verification and the no-live-calls boundary for this task are recorded in
 | D63 | The user authorized a public GitHub repository and recurring publication of completed, verified versions. Publish only committed releases with matching versions, a completed changelog entry, passing checks, and reviewed source; never stage unfinished edits or move public tags. | Keep future versions available while distinguishing completed work from a passing but unfinished working tree. The recurring schedule and repository outcome are recorded in the publication report. |
 | D64 | Use the account's GitHub noreply identity for commits, remove personal paths and internal run identifiers from historical reports, and exclude local state, secrets, caches, and build outputs. Do not choose a license grant on the owner's behalf. | Public project authorization covers the source project, not private profiles or an unsolicited change to licensing rights. |
 
-See [TASK_C.md](TASK_C.md) for the guide's verification matrix and live-call
+See [TASK_C.md](archive/TASK_C.md) for the guide's verification matrix and live-call
 evidence, and [RELEASING.md](RELEASING.md) for future publication criteria.
 
 ## Jevlab follow-up, Phase 1 — run errors (2026-09-21)
@@ -175,7 +175,7 @@ evidence, and [RELEASING.md](RELEASING.md) for future publication criteria.
 | D75 | Keep coach, comparison, lesson grading and server spending confirmations. | Those are separate paid workflows; the requested exemption is for a single Jev run. Saved batch/eval preferences do not authorize them. |
 
 The owner has selected MIT for the release-readiness phase, superseding D64's
-earlier lack of a license choice. See [FOLLOWUP_PHASE2.md](FOLLOWUP_PHASE2.md)
+earlier lack of a license choice. See [FOLLOWUP_PHASE2.md](archive/FOLLOWUP_PHASE2.md)
 for this checkpoint's verification and remaining scope.
 
 ## Jevlab follow-up, Phase 3 — audit fixes (2026-09-21)
@@ -201,3 +201,27 @@ in their separately reviewed phases.
 | D83 | Preserve coach extras from both uv receipts; install the new tool before uninstalling the validated legacy `jev-workbench` tool. Never delete unrelated PATH binaries. | A failed new installation must leave the old installation intact. Receipt errors stop the installer before mutation. |
 | D84 | Preserve version-1 JSON envelopes, exit codes and HTTP routes. Add `jevlab_binaries` while retaining `jev_binaries` as a compatibility field; accept legacy `JEV_SERVER_TOKEN` only when `JEVLAB_SERVER_TOKEN` is unset. | The rename must not silently break data consumers or existing local-server credentials. An explicitly empty new token fails validation rather than restoring an older credential. |
 | D85 | Audit every object in the clean Git repository, including history and metadata, plus current source and both built distributions, before publishing the checkpoint. Label historical reports and retain the old public repository unchanged. | The owner approved fresh clean history in Phase 2. This phase must not reintroduce private author metadata, profiles, credentials or personal paths. No history rewriting, scheduled publishing, PyPI publication or platform expansion is part of this checkpoint. |
+
+## Developer workbench, Phase 1 — focus and repair (2026-09-22)
+
+| ID | Decision | Reason |
+| --- | --- | --- |
+| D86 | Make the tour opt-in and keep primary workbench actions visible in a small terminal. Preserve existing commands and saved settings while reducing repeated help on the entry screens. | Developer cold-start testing found that guidance obscured the task. This changes the default presentation, not the available capabilities. |
+| D87 | Start new templates with one self-contained question and no automation gate; do not load the user's mutable support-triage file as a constructor dependency. Remove an incompatible gate when its question type changes and explain that the question now requires review. | A damaged starter prevented new drafts, and changing Choice to Noul stranded a hidden invalid threshold. Never silently enable automation during a type change. |
+| D88 | Pin TypeSafe SDK 0.7.1 and remove logger mutation from generated modules. Verify synthetic credential redaction and unchanged host logging configuration through the official SDK's mocked transport. | The 0.7.0 SDK propagated credential-bearing transport errors. Muting all HTTP loggers interfered with the consuming application and did not sanitize exceptions. Debug payload logging remains the host application's responsibility. |
+| D89 | Resolve inherited JSON flags in the shared Typer option callback using invocation contexts. | Root/group flags must reach command execution and error handling without persistent process-global state or changes to the version-1 envelope. |
+| D90 | Add the previously selected MIT license, attributed to Javi, and package metadata. Keep current reference documentation separate from archived build checkpoints. | The public repository needs clear reuse terms and a short developer entry point; historical records should not dominate navigation. |
+| D91 | Prepare and verify this checkpoint locally, without pushing, tagging, or publishing. | The independent audit's no-publication instruction remains in force for this continuation. Later project-file workflows, regression gates, and platform expansion remain separate phases. |
+| D92 | In environment-only mode, label key storage as "Save key and use Keychain" and persist that credential mode only after successful storage. Distinguish storage errors from configuration-save errors. | A successful Keychain save must not leave the new key invisible to the active reader or claim success when storage failed. No provider request is needed to save a key. |
+
+## Developer workbench, Phase 2 — project workflow (2026-09-22)
+
+| ID | Decision | Reason |
+| --- | --- | --- |
+| D93 | Implement the planned project workflow now; keep outside developer demand explicitly unverified. | The owner chose implementation without waiting for the proposed 3–5 external walkthroughs. Automated tests establish behavior, not adoption or preference. |
+| D94 | Resolve explicit project YAML paths only in local workflows; keep bare names and server routes catalog-only. Save edits to the original file with an external-change check. | Designs belong in application repositories. Path support must not turn an HTTP template name into arbitrary filesystem access. Relative paths resolve from the working directory; form saves normalize YAML comments/formatting. |
+| D95 | Store portable evaluation baselines as explicit JSON files, reusing saved metrics and fingerprints. Paired checks default to zero regressions and use exit 5 for a failed quality check. | A net accuracy gain must not hide newly wrong cases. Match IDs, states and labels; preserve existing command envelopes/exit codes. Incomplete executions cannot pass. Artifacts contain designs and labels, exclude evaluated states/source paths, and require review before sharing. |
+| D96 | Freeze chosen thresholds and tuning provenance before a separate evaluation; verify exact state disjointness, immutable design/gates, timing and complete resolved-model provenance. | Tuning performance is not held-out evidence. Exact hashes cannot detect semantic duplicates, prove independence, authenticate artifacts, or establish statistical guarantees. Unconfigured questions remain review-only. |
+| D97 | Use indexed exact run lookups and chunked bulk reads; reuse collected latency samples. | Synthetic 50,000-run/1,000-row reporting fell from 10.579 s to 0.019–0.026 s with equal totals. Keep prefix lookup compatibility and bounded export memory; this is a local database measurement, not API throughput. |
+| D98 | Publish the verified work and concise repository presentation to GitHub at the owner's request, superseding D91's local-only checkpoint. Keep PyPI owner-run and no scheduled publishing. | The owner explicitly asked for the GitHub project to visibly change, then approved Phase 2. Include an authentic recorded demo, community contribution/reporting files and current guides. No fictitious earlier commits or tags are created. |
+| D99 | Expose baseline, comparison and frozen-policy verification through the existing eval CLI group first. | Reuse the evaluator and avoid adding another screen hierarchy. Existing TUI evaluation, single-case comparison and threshold tools remain available; Linux and broader distribution work remain separate phases. |

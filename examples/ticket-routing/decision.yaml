@@ -1,0 +1,18 @@
+schema_version: 1
+name: ticket-routing
+description: Choose the team for a support ticket's primary request.
+state:
+  description: The customer's message, without account identifiers or internal policy.
+  format: text
+  example: I was charged twice for my subscription. Please refund one charge.
+model: jev-1.13.0
+questions:
+  route:
+    type: choice
+    instructions: Which team should handle the primary request in this message?
+    criteria:
+      billing: Payments, invoices, subscriptions, or refunds.
+      technical: A malfunctioning product feature or integration.
+      other: Anything outside billing or technical support, or no clear request.
+thresholds: {}
+notes: Synthetic teaching example. No automation until thresholds are tested on separate cases.

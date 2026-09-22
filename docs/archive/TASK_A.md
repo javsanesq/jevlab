@@ -2,12 +2,12 @@
 
 > Historical checkpoint: commands and measured results below describe that release.
 > Since 0.8.0, the app is JevLab and the command is `jevlab`. Use the
-> [current guide](GUIDE.md) for installation, commands, and existing-data compatibility.
+> [current guide](../GUIDE.md) for installation, commands, and existing-data compatibility.
 
 Date: 2026-09-20. Release: 0.4.1. Task B and Task C have not started.
 
 > Historical checkpoint: features, commands, and verification below describe this
-> milestone as recorded. See the [current README](../README.md) for current usage.
+> milestone as recorded. See the [current README](../../README.md) for current usage.
 
 ## Confirmed causes
 

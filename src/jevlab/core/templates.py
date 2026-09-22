@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections.abc import Hashable
+from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 from typing import cast
@@ -139,6 +140,50 @@ def revision_hash(template: Template) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+@dataclass(frozen=True)
+class TemplateSource:
+    """A validated design and its save destination, separate from its API payload."""
+
+    template: Template
+    path: Path
+    project_file: bool
+    content_hash: str | None = None
+
+
+def is_template_path(reference: str | Path) -> bool:
+    """A bare slug always selects the catalog, regardless of files in the cwd."""
+    return (
+        isinstance(reference, Path)
+        or "/" in reference
+        or reference.lower().endswith((".yaml", ".yml"))
+    )
+
+
+def _read_template_file(path: Path) -> str:
+    try:
+        return read_text(path)
+    except FileNotFoundError:
+        raise JevError(
+            "not_found",
+            "The template YAML file does not exist.",
+            "Check the path relative to your current directory, or use an absolute path.",
+        ) from None
+    except IsADirectoryError:
+        raise JevError(
+            "file_error", "The template path is a directory.", "Choose a .yaml or .yml file."
+        ) from None
+    except (OSError, UnicodeError, ValueError):
+        raise JevError(
+            "file_error",
+            "The template YAML file could not be read.",
+            "Use a UTF-8 file below 2 MB and check its read permissions.",
+        ) from None
+
+
+def _content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 class Templates:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -167,6 +212,65 @@ class Templates:
                 "invalid_name", "Template name differs from its filename.", "Make them match."
             )
         return template
+
+    def resolve(self, reference: str | Path) -> TemplateSource:
+        """Resolve a catalog name or an explicit project YAML path, without importing it.
+
+        Relative files resolve against the caller's current working directory. The
+        YAML's internal name remains the run identity; a project filename need not
+        match it. ``load`` remains catalog-only for server and internal name lookups.
+        """
+        if not is_template_path(reference):
+            name = str(reference)
+            return TemplateSource(self.load(name), self.path(name), False)
+        path = Path(reference).expanduser()
+        if path.suffix.lower() not in (".yaml", ".yml"):
+            raise JevError(
+                "invalid_template_path",
+                "A project template needs a .yaml or .yml filename.",
+                "Use a YAML path such as ./decisions/routing.yaml, or a saved template name.",
+            )
+        try:
+            path = path.resolve()
+        except (OSError, RuntimeError):
+            raise JevError(
+                "file_error",
+                "The template path cannot be resolved.",
+                "Check its folders and links.",
+            ) from None
+        text = _read_template_file(path)
+        return TemplateSource(parse_template(text), path, True, _content_hash(text))
+
+    def load_reference(self, reference: str | Path) -> Template:
+        """Load a named or project-owned design for a CLI workflow."""
+        return self.resolve(reference).template
+
+    def save_source(self, source: TemplateSource, template: Template) -> TemplateSource:
+        """Save to the opened file, rejecting external changes instead of overwriting them."""
+        template = parse_template(dump_template(template))
+        if not source.project_file:
+            self.save(template, overwrite=template.name == source.template.name)
+            return self.resolve(template.name)
+        try:
+            current = _read_template_file(source.path)
+        except JevError as error:
+            if error.code != "not_found":
+                raise
+            raise JevError(
+                "template_changed",
+                "The project template was removed or moved while it was open.",
+                "Keep your draft, restore the original file, or reopen its new location.",
+            ) from None
+        if _content_hash(current) != source.content_hash:
+            raise JevError(
+                "template_changed",
+                "The project template changed outside this editor.",
+                "Keep your draft and compare it with the file before reopening. "
+                "The external changes were not overwritten.",
+            )
+        text = dump_template(template)
+        atomic_write(source.path, text)
+        return TemplateSource(template, source.path, True, _content_hash(text))
 
     def save(self, template: Template, *, overwrite: bool = False) -> Path:
         # Revalidate mutable nested dictionaries before writing.

@@ -22,6 +22,7 @@ from typesafe_sdk import (
     TypeSafeAPIError,
     TypeSafeAPIResponseValidationError,
     TypeSafeAPITimeoutError,
+    TypeSafeError,
 )
 
 from jevlab.core.diagnostics import provider_fields, redact_body, redact_text
@@ -55,14 +56,27 @@ class SDKClient:
     ) -> None:
         suppress_wire_logs()
         self._key = key
-        self.client = AsyncTypeSafeClient(
-            api_key=key,
-            base_url="https://api.typesafe.ai",
-            model=settings.model,
-            timeout=settings.timeout_seconds,
-            retry=RetryPolicy(max_retries=settings.max_retries),
-            transport=transport,
-        )
+        try:
+            self.client = AsyncTypeSafeClient(
+                api_key=key,
+                base_url="https://api.typesafe.ai",
+                model=settings.model,
+                timeout=settings.timeout_seconds,
+                retry=RetryPolicy(max_retries=settings.max_retries),
+                transport=transport,
+            )
+        except TypeSafeError as error:
+            # SDK validation happens before evaluate(), while this boundary still
+            # knows the credential needed to redact any echoed setup diagnostics.
+            reason = redact_text(str(error), (key,))
+            raise JevError(
+                "client_configuration",
+                f"TypeSafe client setup failed: {reason} No API request was sent.",
+                "Review the setting named above in jevlab config. For an API key, re-copy "
+                "the complete key without whitespace into Keychain or TYPESAFE_API_KEY.",
+                3,
+                details={"exception_type": type(error).__name__, "request_sent": False},
+            ) from None
 
     async def evaluate(self, template: Template, state: JSONContent) -> Evaluation:
         try:

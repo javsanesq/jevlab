@@ -11,13 +11,14 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static, TextArea
+from typesafe_sdk import Choice
 
 from jevlab.core.errors import JevError
 from jevlab.core.models import QuestionSpec, StateSpec, Template, validate_jev_model
 from jevlab.core.service import Workbench
 from jevlab.core.templates import (
+    TemplateSource,
     dump_template,
-    fork_template,
     load_json,
     load_yaml,
     parse_template,
@@ -410,28 +411,71 @@ class QuestionEditor(ModalScreen[tuple[str, QuestionSpec] | None]):
 
 
 class TemplateEditor(WorkbenchScreen):
+    compact_fields = True
     BINDINGS = [*WorkbenchScreen.BINDINGS, Binding("ctrl+s", "save", "Save template")]
 
     def __init__(
-        self, wb: Workbench, template: Template | None = None, name: str | None = None
+        self,
+        wb: Workbench,
+        template: Template | None = None,
+        name: str | None = None,
+        *,
+        source: TemplateSource | None = None,
     ) -> None:
         super().__init__(wb)
+        self.source = source
+        if source is not None:
+            template = source.template
         self.original_name = template.name if template else None
-        self.design = template or fork_template(
-            wb.templates.load("support-triage"), name or "my-decision"
+        self.design = template or Template(
+            name=name or "my-decision",
+            description="Route a customer request to the right support team.",
+            state=StateSpec(
+                description="The customer's message and requested help.",
+                format="text",
+                example="I was charged twice. Please refund the duplicate charge.",
+            ),
+            model=wb.settings.model,
+            questions={
+                "route": Choice(
+                    instructions="Which team should handle the customer's main request?",
+                    criteria={
+                        "billing": "Charges, payments, or refunds.",
+                        "technical": "Product failures or account access problems.",
+                        "other": "Requests unrelated to billing or technical problems.",
+                    },
+                )
+            },
         )
-        if template is None:
-            self.design.model = wb.settings.model
         self.questions = dict(self.design.questions)
         self.baseline = ""
 
+    def saved_template(self) -> Template:
+        """Reload the exact edited source when moving to the Playground."""
+        return self.wb.templates.load_reference(
+            self.source.path
+            if self.source and self.source.project_file
+            else self.original_name or ""
+        )
+
     def compose(self) -> ComposeResult:
         yield Header()
-        with VerticalScroll(id="editor-scroll", classes="page"):
+        with Horizontal(classes="workspace-actions"):
+            yield Button("Save template", id="save-template", variant="primary")
+            yield Button("Edit question", id="edit-question")
+            yield Button("Advanced YAML", id="advanced-yaml", classes="advanced")
+        with VerticalScroll(id="editor-scroll", classes="page compact-page"):
             yield Static("TEMPLATE / save questions you can use again", classes="eyebrow")
+            if self.source and self.source.project_file:
+                yield Static(
+                    f"Editing project file: {self.source.path}",
+                    id="template-source",
+                    markup=False,
+                    classes="muted",
+                )
             yield Static(
-                "1. Name this design. 2. Describe the information it needs. 3. Edit its questions. "
-                "Save when ready; saving makes no paid request.",
+                "Edit a question, save the template, then run it in the Playground. "
+                "Ctrl+E explains.",
                 classes="muted",
             )
             with Horizontal(classes="form-row"):
@@ -452,6 +496,18 @@ class TemplateEditor(WorkbenchScreen):
                         "jev-latest",
                     )
             yield Static("", id="model-validation", markup=False)
+            yield Field(
+                Select(self.question_options(), allow_blank=False, id="questions"),
+                "Question to edit",
+                "Choose one question, then select Edit. Each question asks one judgment.",
+                "route — Choice",
+            )
+            with Horizontal(classes="buttons"):
+                yield Button("Add", id="add-question")
+                yield Button("Remove", id="remove-question")
+                yield Button("Move up", id="move-up", classes="advanced")
+                yield Button("Move down", id="move-down", classes="advanced")
+            yield Static("", id="threshold-notice", markup=False)
             yield Field(
                 Input(self.design.description, id="description"),
                 "What this design does",
@@ -495,18 +551,6 @@ class TemplateEditor(WorkbenchScreen):
                 "include passwords.",
                 '{"ticket": {"message": "I was charged twice. Please refund one charge."}}',
             )
-            yield Field(
-                Select(self.question_options(), allow_blank=False, id="questions"),
-                "Question to edit",
-                "Choose one question, then select Edit. Each question asks one judgment.",
-                "route — Choice",
-            )
-            with Horizontal(classes="buttons"):
-                yield Button("Add", id="add-question")
-                yield Button("Edit", id="edit-question")
-                yield Button("Remove", id="remove-question")
-                yield Button("Move up", id="move-up", classes="advanced")
-                yield Button("Move down", id="move-down", classes="advanced")
             yield Button("More options", id="editor-options", classes="options-toggle")
             yield Field(
                 TextArea(
@@ -530,9 +574,6 @@ class TemplateEditor(WorkbenchScreen):
                 classes="advanced",
             )
             yield Static("", id="editor-status", markup=False)
-            with Horizontal(classes="buttons"):
-                yield Button("Save template", id="save-template", variant="primary")
-                yield Button("Advanced YAML", id="advanced-yaml", classes="advanced")
         yield Footer()
 
     def question_options(self) -> list[tuple[str, str]]:
@@ -553,6 +594,11 @@ class TemplateEditor(WorkbenchScreen):
     def on_mount(self) -> None:
         self.baseline = self.snapshot()
         self.validate_draft()
+        self.call_after_refresh(self.focus_name)
+
+    def focus_name(self) -> None:
+        self.query_one("#template-name", Input).focus(scroll_visible=False)
+        self.query_one("#editor-scroll", VerticalScroll).scroll_home(animate=False)
 
     def validate_model(self) -> bool:
         if not self.is_mounted:
@@ -638,7 +684,10 @@ class TemplateEditor(WorkbenchScreen):
             return
         try:
             design = self.build()
-            self.wb.templates.save(design, overwrite=design.name == self.original_name)
+            if self.source is not None:
+                self.source = self.wb.templates.save_source(self.source, design)
+            else:
+                self.wb.templates.save(design, overwrite=design.name == self.original_name)
             self.design, self.original_name = design, design.name
             self.baseline = self.snapshot()
             self.query_one("#editor-status", Static).update(
@@ -696,21 +745,36 @@ class TemplateEditor(WorkbenchScreen):
             if name in self.questions and name != existing:
                 self.notify("That question ID already exists; use a unique ID.", severity="error")
                 return
+            previous = self.questions.get(existing or "")
+            gate_changed = previous is not None and (previous.type == "noul") != (
+                question.type == "noul"
+            )
+            try:
+                gates = load_yaml(self.query_one("#thresholds", TextArea).text) or {}
+                if isinstance(gates, dict) and existing in gates:
+                    gate = gates.pop(existing)
+                    if gate_changed:
+                        message = (
+                            f"{name}: removed the incompatible threshold after changing type. "
+                            "Answers now go to human review. "
+                            "Set a new threshold under More options."
+                        )
+                        self.query_one("#threshold-notice", Static).update(message)
+                        self.notify(message, timeout=15)
+                    else:
+                        gates[name] = gate
+                    self.query_one("#thresholds", TextArea).load_text(
+                        yaml.safe_dump(gates, sort_keys=False)
+                    )
+            except (ValueError, yaml.YAMLError):
+                self.options_revealed = True
+                self.apply_mode()
+                self.notify("Repair the threshold YAML below before saving.")
             if existing and name != existing:
                 self.questions = {
                     name if k == existing else k: question if k == existing else v
                     for k, v in self.questions.items()
                 }
-                # Preserve a renamed gate; type changes are validated at save.
-                try:
-                    gates = load_yaml(self.query_one("#thresholds", TextArea).text) or {}
-                    if isinstance(gates, dict) and existing in gates:
-                        gates[name] = gates.pop(existing)
-                        self.query_one("#thresholds", TextArea).load_text(
-                            yaml.safe_dump(gates, sort_keys=False)
-                        )
-                except (ValueError, yaml.YAMLError):
-                    self.notify("Also rename the matching threshold before saving.")
             else:
                 self.questions[name] = question
             select = self.query_one("#questions", Select)

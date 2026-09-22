@@ -1,5 +1,6 @@
 """Interactive job preferences never weaken unattended cost gates or single-run output."""
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -147,6 +148,11 @@ async def test_tui_checked_cancel_keeps_prompt_but_checked_accept_persists(
             screen.query_one("#output-path", Input).value = str(tmp_path / "out.jsonl")
         await finish_job(app, pilot, screen.prepare(run=True), approve=False)
         assert isinstance(app.screen, JobCostConfirm)  # Even this one-row file prompts.
+        # Mount queues focus through app.call_later, followed by a widget Focus event.
+        # A single pilot.pause() only drains events queued when its barrier started.
+        async with asyncio.timeout(5):
+            while not app.screen.query_one("#keep", Button).has_focus:
+                await pilot.pause()
         assert app.screen.query_one("#keep", Button).has_focus
         app.screen.query_one("#remember-cost", Checkbox).value = True
         await pilot.click("#keep")

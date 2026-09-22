@@ -15,7 +15,7 @@ ExportLanguage = Literal["python", "langchain", "pydantic-ai"]
 # private database, credentials store, or runtime code generation.
 _MODULE = '''"""Portable Jev decision exported by JevLab.
 
-Requires Python 3.12+ and typesafe-sdk==0.7.0.
+Requires Python 3.12+ and typesafe-sdk==0.7.1.
 __REQUIREMENTS__
 Supply TYPESAFE_API_KEY in the process environment. Never put a key in this file.
 Call evaluate(state) or await aevaluate(state); importing performs no API calls.
@@ -24,10 +24,11 @@ SDK errors propagate to your caller. Timeouts may leave remote billing unknown.
 The SDK owns retries (two by default); avoid stacking automatic retry loops.
 No local history is written. Framework tracing, if enabled by the host application,
 may record state and results; configure its privacy and retention separately.
+Logging configuration belongs to the host. SDK debug logging includes request and
+response bodies; use it only with data you intend to record.
 """
 
 import json
-import logging
 import math
 from typing import Annotated, Literal
 
@@ -101,11 +102,6 @@ def _state(state: JSONContent) -> JSONContent:
         raise ValueError("State must be nonempty text or a JSON object/array.")
     # Reject non-JSON objects and NaN/infinity before opening an HTTP client.
     return _STATE.validate_json(json.dumps(state, allow_nan=False))
-
-
-def _quiet_wire_logs() -> None:
-    for name in ("typesafe_sdk", "httpx2", "httpcore2", "httpx", "httpcore"):
-        logging.getLogger(name).disabled = True
 
 
 def _verify(response: SystemOneResponse) -> None:
@@ -202,7 +198,6 @@ def evaluate(
     HTTP operation timeout is not a total deadline across retries.
     """
     state = _state(state)
-    _quiet_wire_logs()
     with TypeSafeClient(
         base_url="https://api.typesafe.ai",
         model=DESIGN.model if model is None else model,
@@ -223,7 +218,6 @@ async def aevaluate(
 ) -> DecisionResult:
     """Call Jev asynchronously; use asyncio.timeout externally for a total deadline."""
     state = _state(state)
-    _quiet_wire_logs()
     async with AsyncTypeSafeClient(
         base_url="https://api.typesafe.ai",
         model=DESIGN.model if model is None else model,
