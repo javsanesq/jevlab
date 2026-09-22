@@ -23,48 +23,55 @@ def probability_bar(value: float, width: int = 28) -> Text:
     return bar
 
 
-def render_run(run: Run, *, compact: bool = False, verbose: bool = False) -> Group:
+def render_run(
+    run: Run, *, compact: bool = False, verbose: bool = False, illustrative: bool = False
+) -> Group:
     parts: list[Table | Panel | Text] = []
-    metadata = Table.grid(padding=(0, 3))
-    metadata.add_column()
-    metadata.add_column(justify="right")
-    metadata.add_column(justify="right")
-    metadata.add_column(justify="right")
-    metadata.add_row(
-        Text(f"Model: {run.resolved_model or run.requested_model}"),
-        f"{run.latency_ms:,} ms" if run.latency_ms is not None else "latency unknown",
-        f"{run.input_tokens:,} in" if run.input_tokens is not None else "tokens unknown",
-        f"{format_cost(run.cost_nanousd)} est.",
-    )
-    if compact:
-        compact_metadata = Table.grid(padding=(0, 1), expand=True)
-        compact_metadata.add_column()
-        compact_metadata.add_column(justify="right")
-        compact_metadata.add_row(
-            Text(run.resolved_model or run.requested_model),
-            f"{run.latency_ms:,} ms" if run.latency_ms is not None else "unknown ms",
+    if illustrative:
+        parts.append(
+            Text("Illustrative values · time, tokens and cost were not measured", style="dim")
         )
-        compact_metadata.add_row(
-            f"{run.input_tokens:,} input tokens"
-            if run.input_tokens is not None
-            else "unknown tokens",
+    else:
+        metadata = Table.grid(padding=(0, 3))
+        metadata.add_column()
+        metadata.add_column(justify="right")
+        metadata.add_column(justify="right")
+        metadata.add_column(justify="right")
+        metadata.add_row(
+            Text(f"Model: {run.resolved_model or run.requested_model}"),
+            f"{run.latency_ms:,} ms" if run.latency_ms is not None else "latency unknown",
+            f"{run.input_tokens:,} in" if run.input_tokens is not None else "tokens unknown",
             f"{format_cost(run.cost_nanousd)} est.",
         )
-        parts.append(compact_metadata)
-    else:
-        parts.append(metadata)
-    if run.output_tokens is not None:
-        free_output = (
-            " · output free at the recorded rate"
-            if run.price_snapshot.get("output_per_million") == "0"
-            else ""
-        )
-        parts.append(
-            Text(
-                f"{run.output_tokens:,} output tokens{free_output}",
-                style="dim",
+        if compact:
+            compact_metadata = Table.grid(padding=(0, 1), expand=True)
+            compact_metadata.add_column()
+            compact_metadata.add_column(justify="right")
+            compact_metadata.add_row(
+                Text(run.resolved_model or run.requested_model),
+                f"{run.latency_ms:,} ms" if run.latency_ms is not None else "unknown ms",
             )
-        )
+            compact_metadata.add_row(
+                f"{run.input_tokens:,} input tokens"
+                if run.input_tokens is not None
+                else "unknown tokens",
+                f"{format_cost(run.cost_nanousd)} est.",
+            )
+            parts.append(compact_metadata)
+        else:
+            parts.append(metadata)
+        if run.output_tokens is not None:
+            free_output = (
+                " · output free at the recorded rate"
+                if run.price_snapshot.get("output_per_million") == "0"
+                else ""
+            )
+            parts.append(
+                Text(
+                    f"{run.output_tokens:,} output tokens{free_output}",
+                    style="dim",
+                )
+            )
     if error := error_for_run(run):
         parts.append(Text(human_error(error, verbose=verbose)))
     if run.status != "succeeded" or not run.response:

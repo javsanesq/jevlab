@@ -350,6 +350,13 @@ def config(
                 "Use --set FIELD=VALUE. Keys belong in Keychain.",
             )
         values[field] = value
+    if key_stdin and values.get("credential_mode") == "environment":
+        raise JevError(
+            "invalid_setting",
+            "The key would be saved to Keychain but environment-only mode was requested.",
+            "Omit --set credential_mode=environment when using --key-stdin, or set the key "
+            "in the provider's environment variable instead.",
+        )
     if set_values:
         change_settings(wb, values)
     if key_stdin:
@@ -357,6 +364,8 @@ def config(
         if len(value) > 16384:
             raise JevError("invalid_key", "Key input is too long.", "Supply only the API key.")
         Credentials().save(selected, value)
+        if wb.settings.credential_mode != "keychain":
+            change_settings(wb, {"credential_mode": "keychain"})
     if not json_output and not set_values and not key_stdin:
         if not sys.stdin.isatty():
             raise JevError(
@@ -364,38 +373,58 @@ def config(
                 "Interactive setup needs a terminal.",
                 "Use --json to inspect or --set to configure.",
             )
-        console.print(Text("Jev setup · credentials stay in macOS Keychain"))
-        expert = typer.confirm(
-            "Show Expert mode (all technical options)? "
-            "Simple mode guides you through common tasks.",
-            default=wb.settings.ui_mode == "expert",
-        )
-        values["ui_mode"] = "expert" if expert else "simple"
-        environment = typer.confirm(
-            "Use environment variables only?", default=wb.settings.credential_mode == "environment"
-        )
-        values["credential_mode"] = "environment" if environment else "keychain"
-        if not environment:
+        if wb.settings.ui_mode == "simple" and selected == "typesafe":
+            console.print(
+                Text(
+                    "Add a TypeSafe key for live decisions. Press Enter to skip "
+                    "and try the free demo."
+                )
+            )
             value = typer.prompt(
-                f"{selected} API key (empty keeps current)",
+                "TypeSafe API key (Enter to skip)",
                 default="",
                 hide_input=True,
                 show_default=False,
             )
             if value:
                 Credentials().save(selected, value)
-        values["model"] = typer.prompt("Default model", default=wb.settings.model)
-        if selected != "typesafe":
-            enable = typer.confirm(
-                f"Use {selected} for optional coaching? Selected designs/states are sent to it.",
-                default=wb.settings.coach_provider == selected,
+                values["credential_mode"] = "keychain"
+        else:
+            console.print(Text("JevLab setup · keys stay in Keychain or your environment"))
+            expert = typer.confirm(
+                "Show Expert mode (all technical options)? "
+                "Simple mode guides you through common tasks.",
+                default=wb.settings.ui_mode == "expert",
             )
-            if enable:
-                values["coach_provider"] = selected
-                values["coach_model"] = typer.prompt(
-                    "Coach API model ID", default=wb.settings.coach_model_for(selected)
+            values["ui_mode"] = "expert" if expert else "simple"
+            environment = typer.confirm(
+                "Use environment variables only?",
+                default=wb.settings.credential_mode == "environment",
+            )
+            values["credential_mode"] = "environment" if environment else "keychain"
+            if not environment:
+                value = typer.prompt(
+                    f"{selected} API key (empty keeps current)",
+                    default="",
+                    hide_input=True,
+                    show_default=False,
                 )
-        change_settings(wb, values)
+                if value:
+                    Credentials().save(selected, value)
+            values["model"] = typer.prompt("Default model", default=wb.settings.model)
+            if selected != "typesafe":
+                enable = typer.confirm(
+                    f"Use {selected} for optional coaching? "
+                    "Selected designs/states are sent to it.",
+                    default=wb.settings.coach_provider == selected,
+                )
+                if enable:
+                    values["coach_provider"] = selected
+                    values["coach_model"] = typer.prompt(
+                        "Coach API model ID", default=wb.settings.coach_model_for(selected)
+                    )
+        if values:
+            change_settings(wb, values)
     data = {
         "settings": wb.settings.model_dump(),
         "credentials": Credentials(wb.settings.credential_mode).status(),
@@ -405,9 +434,26 @@ def config(
     if json_output:
         emit(data)
     elif wb.settings.ui_mode == "simple":
+        credentials = cast(dict[str, object], data["credentials"])
+        typesafe_status = cast(dict[str, object], credentials["typesafe"])
+        saved_or_checked = (
+            "Settings saved." if values or set_values or key_stdin else "Setup checked."
+        )
+        if isinstance(typesafe_status.get("error"), dict):
+            readiness = (
+                f"{saved_or_checked} The TypeSafe key could not be checked. "
+                "Run jevlab doctor for the cause."
+            )
+        elif typesafe_status.get("present"):
+            readiness = f"{saved_or_checked} A TypeSafe key was found; its validity was not tested."
+        else:
+            readiness = (
+                f"{saved_or_checked} No TypeSafe key was found. Add one with jevlab config "
+                "or set TYPESAFE_API_KEY before a live run."
+            )
         console.print(
             Text(
-                "Settings saved and ready.\n"
+                f"{readiness}\n"
                 "Display: Simple (guided screens; advanced options stay available).\n"
                 f"Decision model: {wb.settings.model}\n"
                 f"Optional coach: {wb.settings.coach_provider}\n"
@@ -415,7 +461,12 @@ def config(
                 "API keys are private access codes. Their values are never shown below."
             )
         )
-        display_credentials(cast(dict[str, object], data["credentials"]))
+        visible_credentials = {"typesafe": credentials["typesafe"]}
+        if wb.settings.coach_provider in ("anthropic", "openai"):
+            visible_credentials[wb.settings.coach_provider] = credentials[
+                wb.settings.coach_provider
+            ]
+        display_credentials(visible_credentials)
         console.print(
             Text(
                 "Try jevlab demo for a free recorded example, or jevlab tour for a guided start.\n"

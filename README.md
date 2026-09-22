@@ -8,12 +8,6 @@ Edit a question, see its probabilities, evaluate it on labeled examples, and exp
 
 [Quickstart](docs/QUICKSTART.md) · [Documentation](docs/README.md) · [Contributing](CONTRIBUTING.md)
 
-![JevLab recorded demo: choose a design, inspect probability bars, and review the result](docs/assets/demo.gif)
-
-[Static screenshot](docs/assets/playground.svg)
-
-*Recorded example with synthetic values, not a live response or an accuracy benchmark.*
-
 ## What is Jev?
 
 [Jev](https://docs.typesafe.ai/introduction/quickstart) is TypeSafe's model for small,
@@ -35,14 +29,15 @@ JevLab is not yet published on PyPI.
 ```sh
 git clone https://github.com/javsanesq/jevlab.git
 cd jevlab
-make install
+uv run --no-project --python '>=3.12' python scripts/install.py
 jevlab --version
 ```
 
-`make install` checks for conflicting commands and performs an editable uv tool
-installation. Keep the checkout: source edits apply immediately. If `make` is
-unavailable, run `uv run python scripts/install.py`. If your shell cannot find
-`jevlab`, run `uv tool update-shell` and open a new terminal.
+The installer checks for conflicting commands and performs an editable uv tool
+installation. Keep the checkout: source edits apply immediately. `make install`
+is a shortcut when `make` is available.
+If your shell cannot find `jevlab`, run `uv tool update-shell` and open a new
+terminal.
 
 Upgrading from `jev`? Saved templates, history, and keys remain available;
 read the [upgrade notes](docs/REFERENCE.md#upgrading-from-jev).
@@ -54,6 +49,11 @@ Start with a recorded example. It needs no account, API key, or network request:
 ```sh
 jevlab demo
 ```
+
+![JevLab recorded demo: choose a design, inspect probability bars, and review the result](docs/assets/demo.gif)
+
+[Static screenshot](docs/assets/playground.svg) · *Recorded example with synthetic
+values, not a live response or an accuracy benchmark.*
 
 Press **Ctrl+Q** to leave the full-screen view. To make a real request, obtain a
 [TypeSafe API key](https://console.typesafe.ai/keys), then use the hidden prompt

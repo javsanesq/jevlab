@@ -108,4 +108,7 @@ def test_global_json_never_opens_tui_or_leaks_into_next_invocation(
     human = runner.invoke(app, ["demo"])
     assert human.exit_code == 0
     assert "RECORDED EXAMPLE" in human.stdout
+    assert "time, tokens and cost were not measured" in human.stdout
+    assert "unknown ms" not in human.stdout
+    assert "0 input tokens" not in human.stdout
     assert not human.stdout.startswith('{"schema_version"')

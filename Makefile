@@ -1,7 +1,7 @@
 .PHONY: install dev test lint
 
 install:
-	uv run python scripts/install.py $(if $(COACH),--coach $(COACH))
+	uv run --no-project --python '>=3.12' python scripts/install.py $(if $(COACH),--coach $(COACH))
 
 dev:
 	uv run --all-extras jevlab

@@ -1,0 +1,95 @@
+name: Publish to PyPI
+
+# PyPI publication is an owner action. A GitHub release does not trigger this job.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      UV_LOCKED: "true"
+      UV_PYTHON: "3.12"
+      TYPESAFE_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      OPENAI_API_KEY: ""
+    steps:
+      - name: Check out the selected tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.9"
+          enable-cache: false
+
+      - name: Check tag, version, and published GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" != tag || ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo 'Select a vMAJOR.MINOR.PATCH tag: gh workflow run release.yml --ref v0.9.1' >&2
+            exit 1
+          fi
+          git show-ref --verify --quiet "$GITHUB_REF"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${GITHUB_REF}^{commit}")"
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          assert os.environ["GITHUB_REF_NAME"] == f"v{version}", "Tag and package version differ"
+          PY
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" = false
+
+      - name: Verify and build the tagged source
+        run: |
+          uv sync --locked --all-extras --group dev
+          make lint
+          make test
+          uv build --no-sources
+
+      - name: Upload distributions for the publish job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download verified distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: distributions
+          path: dist/
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.9"
+          enable-cache: false
+
+      - name: Publish with PyPI trusted publishing
+        run: uv publish --trusted-publishing always

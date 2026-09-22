@@ -9,11 +9,12 @@ New to Terminal? Use the [beginner's guide](GUIDE.md). [All documentation](READM
 ```sh
 git clone https://github.com/javsanesq/jevlab.git
 cd jevlab
-make install
+uv run --no-project --python '>=3.12' python scripts/install.py
 jevlab --version
 ```
 
-Expect `jevlab 0.9.0` or later. Keep the checkout: this is an editable installation.
+Expect `jevlab 0.9.1` or later. Keep the checkout: this is an editable installation.
+`make install` is an optional shortcut when `make` is available.
 If the command is missing, run `uv tool update-shell` and open a new terminal.
 PyPI installation is not yet available. Existing users should keep their current
 checkout and follow the [upgrade notes](REFERENCE.md#upgrading-from-jev).
@@ -36,9 +37,9 @@ Obtain a [TypeSafe API key](https://console.typesafe.ai/keys), then run:
 jevlab config
 ```
 
-Use the hidden key prompt; do not put the key in a command or file. The default
-credential mode stores it in macOS Keychain. `jevlab doctor` checks local setup
-without making a paid call.
+The default Simple setup asks for the TypeSafe key in one hidden prompt; press
+Enter to skip it. Do not put the key in a command or file. A saved key goes to
+macOS Keychain. `jevlab doctor` checks local setup without making a paid call.
 
 ```sh
 jevlab

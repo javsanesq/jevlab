@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from conftest import MockEvaluator
@@ -17,6 +18,7 @@ from jevlab.cli.spending import confirm_spend
 from jevlab.coach.service import Coach, CoachResult
 from jevlab.core.client import Evaluator
 from jevlab.core.content import lesson, pattern, starter
+from jevlab.core.credentials import Credentials
 from jevlab.core.errors import JevError
 from jevlab.core.models import Run, Settings, Template
 from jevlab.core.service import Workbench
@@ -350,6 +352,143 @@ def test_simple_reports_are_readable_and_expert_details_remain(
     assert expert.exit_code == 0
     assert '"ui_mode": "expert"' in expert.stdout
     assert '"coach_timeout_seconds"' in expert.stdout
+
+
+def test_simple_config_distinguishes_saved_settings_from_live_key_readiness(
+    wb: Workbench, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wb.update_settings(wb.settings.with_updates({"ui_mode": "simple"}))
+    monkeypatch.setattr(commands, "workbench", lambda: wb)
+
+    missing = runner.invoke(app, ["config", "--set", "ui_mode=simple"])
+    assert missing.exit_code == 0
+    assert "Settings saved. No TypeSafe key was found." in missing.stdout
+    assert "jevlab config" in missing.stdout and "TYPESAFE_API_KEY" in missing.stdout
+    assert "anthropic key:" not in missing.stdout and "openai key:" not in missing.stdout
+    assert "Settings saved and ready" not in missing.stdout
+
+    secret = "synthetic-test-key-value"
+    monkeypatch.setenv("TYPESAFE_API_KEY", secret)
+    found = runner.invoke(app, ["config", "--set", "ui_mode=simple"])
+    assert found.exit_code == 0
+    assert "A TypeSafe key was found; its validity was not tested." in found.stdout
+    assert "typesafe key: found in environment" in found.stdout
+    assert secret not in found.output
+
+    machine = runner.invoke(app, ["config", "--json"])
+    assert machine.exit_code == 0 and machine.stderr == ""
+    payload = json.loads(machine.stdout)
+    assert payload["schema_version"] == 1 and payload["ok"] is True
+    assert payload["data"]["credentials"]["typesafe"]["present"] is True
+    assert secret not in machine.stdout
+
+
+@pytest.mark.parametrize("key", ["", "synthetic-test-key"])
+def test_simple_interactive_setup_only_prompts_for_key_and_switches_mode_after_save(
+    wb: Workbench, monkeypatch: pytest.MonkeyPatch, key: str
+) -> None:
+    wb.update_settings(
+        wb.settings.with_updates({"ui_mode": "simple", "credential_mode": "environment"})
+    )
+    monkeypatch.setattr(commands, "workbench", lambda: wb)
+    monkeypatch.setattr(
+        commands, "sys", SimpleNamespace(stdin=SimpleNamespace(isatty=lambda: True))
+    )
+    prompts: list[str] = []
+    saved: list[tuple[str, str]] = []
+
+    def prompt(label: str, **_kwargs: object) -> str:
+        prompts.append(label)
+        return key
+
+    def fail_confirm(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Simple setup must not ask advanced configuration questions")
+
+    def save(_credentials: Credentials, provider: str, value: str) -> None:
+        saved.append((provider, value))
+
+    monkeypatch.setattr(commands.typer, "prompt", prompt)
+    monkeypatch.setattr(commands.typer, "confirm", fail_confirm)
+    monkeypatch.setattr(commands.Credentials, "save", save)
+    monkeypatch.setattr(
+        commands.Credentials,
+        "status",
+        lambda _credentials: {"typesafe": {"present": bool(saved), "source": "keychain"}},
+    )
+
+    result = runner.invoke(app, ["config"])
+    assert result.exit_code == 0, result.output
+    assert prompts == ["TypeSafe API key (Enter to skip)"]
+    assert saved == ([("typesafe", key)] if key else [])
+    assert wb.settings.credential_mode == ("keychain" if key else "environment")
+    if key:
+        assert key not in result.output
+    else:
+        assert "No TypeSafe key was found" in result.stdout
+
+
+def test_piped_key_activates_keychain_lookup_without_changing_json_contract(
+    wb: Workbench, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wb.update_settings(wb.settings.with_updates({"credential_mode": "environment"}))
+    monkeypatch.setattr(commands, "workbench", lambda: wb)
+    saved: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        commands.Credentials,
+        "save",
+        lambda _credentials, provider, value: saved.append((provider, value)),
+    )
+    monkeypatch.setattr(
+        commands.Credentials,
+        "status",
+        lambda _credentials: {"typesafe": {"present": bool(saved), "source": "keychain"}},
+    )
+    secret = "synthetic-test-key"
+    result = runner.invoke(app, ["config", "--key-stdin", "--json"], input=secret)
+    assert result.exit_code == 0 and result.stderr == ""
+    assert saved == [("typesafe", secret)]
+    assert wb.settings.credential_mode == "keychain"
+    assert secret not in result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["schema_version"] == 1 and payload["ok"] is True
+    assert payload["data"]["settings"]["credential_mode"] == "keychain"
+
+    conflicting = runner.invoke(
+        app,
+        ["config", "--set", "credential_mode=environment", "--key-stdin", "--json"],
+        input=secret,
+    )
+    assert conflicting.exit_code == 2 and conflicting.stderr == ""
+    assert len(saved) == 1
+    assert json.loads(conflicting.stdout)["error"]["code"] == "invalid_setting"
+
+
+def test_simple_config_does_not_call_an_unchecked_key_ready(
+    wb: Workbench, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wb.update_settings(wb.settings.with_updates({"ui_mode": "simple"}))
+    monkeypatch.setattr(commands, "workbench", lambda: wb)
+    original_status = commands.Credentials.status
+
+    def unknown_status(credentials: Credentials) -> dict[str, object]:
+        status = original_status(credentials)
+        status["typesafe"] = {
+            "present": False,
+            "source": "unavailable",
+            "error": JevError(
+                "credential_timeout",
+                "Checking the TypeSafe key timed out.",
+                "Run jevlab doctor after unlocking Keychain.",
+            ).as_dict(),
+        }
+        return status
+
+    monkeypatch.setattr(commands.Credentials, "status", unknown_status)
+    result = runner.invoke(app, ["config", "--set", "ui_mode=simple"])
+    assert result.exit_code == 0
+    assert "The TypeSafe key could not be checked." in result.stdout
+    assert "Run jevlab doctor for the cause." in " ".join(result.stdout.split())
+    assert "Settings saved and ready" not in result.stdout
 
 
 @pytest.mark.parametrize("command", ["demo", "tour", "glossary"])

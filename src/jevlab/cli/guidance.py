@@ -33,7 +33,7 @@ def demo(json_output: JsonFlag = False) -> None:
         console.print(Text(recording.disclaimer))
         console.print(Text(recording.title))
         console.print(Text("Customer: I was charged twice. Please refund the duplicate charge."))
-        console.print(render_run(recording.run, compact=True))
+        console.print(render_run(recording.run, compact=True, illustrative=True))
         console.print(Text(recording.provenance))
 
 

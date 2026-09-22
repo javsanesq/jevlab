@@ -2,6 +2,32 @@
 
 Versions describe the workbench application, not TypeSafe's model versions.
 
+## 0.9.1 — 2026-09-22
+
+Status: complete.
+
+- Add an owner-triggered PyPI trusted-publishing workflow. The tagged source is
+  checked, tested, and built without upload permission; a separate protected job
+  can publish only after the maintainer dispatches and approves it. PyPI remains
+  unpublished until the owner configures the publisher and starts the workflow.
+- Put the README's install and first-result path before the large recorded demo.
+- Avoid resolving development dependencies during source installation.
+- Label demo performance and usage as unmeasured rather than displaying fixture zeros.
+- Let first-time Simple setup ask for the TypeSafe key directly and report when
+  no usable key has been found. Keep optional coach key status out of that default
+  view without changing machine-readable config output.
+- Give the maintainer exact first-publication and clean-install verification steps.
+- Protect the GitHub `pypi` environment with owner review and a `v*` tag rule.
+
+Verification: `make lint` passed (Ruff, formatting, Pyright); `make test` passed
+with **791 offline tests** and one opt-in live test skipped. A cold isolated
+editable install used only runtime dependencies, and the wheel's demo, guide,
+config and version worked outside the checkout. The wheel and source archive,
+complete Git history, author metadata, and local documentation links passed
+privacy/inventory checks. Both GitHub workflows passed actionlint. **No live
+provider call or PyPI upload was made.** The PyPI workflow has not been run;
+macOS and source installation remain the supported routes.
+
 ## 0.9.0 — 2026-09-22
 
 Status: complete.

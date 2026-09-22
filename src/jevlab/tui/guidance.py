@@ -128,7 +128,9 @@ class DemoScreen(WorkbenchScreen):
                 markup=False,
             )
             yield Label("Illustrative answers loaded from the bundled file")
-            yield Static(render_run(recording.run, compact=True), id="demo-result")
+            yield Static(
+                render_run(recording.run, compact=True, illustrative=True), id="demo-result"
+            )
             yield Static(recording.provenance, markup=False, classes="muted")
             yield Static(
                 "The team meets its review cutoff, while the impact score does not. "
