@@ -2,7 +2,7 @@
 
 Run from the checkout: ``uv run python scripts/capture_portfolio.py``.
 Only docs/assets/*.svg are written permanently. Temporary profiles and their
-synthetic history are removed on exit; the user's ~/.jev is never opened.
+synthetic history are removed on exit; the user's ~/.jevlab is never opened.
 """
 
 import asyncio
@@ -15,17 +15,17 @@ from unittest.mock import patch
 from textual.widgets import Static
 from typesafe_sdk import Choice, JSONContent, Noul, SystemOneResponse
 
-from jev.core.client import Evaluation
-from jev.core.compare import compare
-from jev.core.content import LabeledCase, export_dataset, lesson, pattern
-from jev.core.jobs import BatchService
-from jev.core.models import Settings, Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.base import WorkbenchScreen
-from jev.tui.evaluation import CompareResultScreen, EvalScreen, ThresholdScreen
-from jev.tui.learning import LearnScreen, LessonScreen
-from jev.tui.screens import ResultScreen
+from jevlab.core.client import Evaluation
+from jevlab.core.compare import compare
+from jevlab.core.content import LabeledCase, export_dataset, lesson, pattern
+from jevlab.core.jobs import BatchService
+from jevlab.core.models import Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.base import WorkbenchScreen
+from jevlab.tui.evaluation import CompareResultScreen, EvalScreen, ThresholdScreen
+from jevlab.tui.learning import LearnScreen, LessonScreen
+from jevlab.tui.screens import ResultScreen
 
 ASSETS = Path(__file__).resolve().parents[1] / "docs" / "assets"
 CAPTION = (
@@ -156,11 +156,13 @@ async def capture(profile: Path) -> None:
                 Static(CAPTION, classes="muted", markup=False), before=0
             )
             await pilot.pause()
-            svg = app.export_screenshot(title="jev · synthetic portfolio demo")
+            svg = app.export_screenshot(title="jevlab · synthetic portfolio demo")
             if str(profile) in svg:
                 raise RuntimeError("A temporary filesystem path leaked into a screenshot.")
             destination = ASSETS / filename
-            destination.write_text(svg, encoding="utf-8")
+            destination.write_text(
+                "\n".join(line.rstrip() for line in svg.splitlines()) + "\n", encoding="utf-8"
+            )
             print(destination.relative_to(ASSETS.parent.parent))
             await app.pop_screen()
             await pilot.pause()
@@ -175,7 +177,7 @@ def main() -> None:
     for name in ("TYPESAFE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
         os.environ.pop(name, None)
     with (
-        tempfile.TemporaryDirectory(prefix="jev-portfolio-") as temporary,
+        tempfile.TemporaryDirectory(prefix="jevlab-portfolio-") as temporary,
         patch("socket.socket.connect", side_effect=blocked),
         patch("socket.socket.connect_ex", side_effect=blocked),
         patch("keyring.get_password", side_effect=blocked),

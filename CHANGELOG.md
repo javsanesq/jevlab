@@ -2,6 +2,36 @@
 
 Versions describe the workbench application, not TypeSafe's model versions.
 
+## 0.8.0 — 2026-09-22
+
+Status: complete.
+
+- Rename the distribution, Python package and installed command to `jevlab`.
+  Keep TypeSafe's Jev model names and exported decision interfaces unchanged.
+- New profiles use `~/.jevlab/jevlab.db`. Existing `~/.jev` profiles remain in
+  place with a notice; legacy databases and their WAL files are never moved or
+  merged. `JEVLAB_HOME` selects a profile, with `JEV_HOME` retained as a fallback.
+- Read existing `jev-workbench` Keychain keys when no new `jevlab` entry exists.
+  Save new keys only under `jevlab`; preserve official provider environment names.
+- Preserve installed coach extras and remove the old uv-managed command only
+  after the new tool installs successfully. No `jev` command shim is installed.
+- Update the guide, current commands, CI and captured terminal screens. Keep
+  historical reports labeled as records of the earlier command name.
+- Use `JEVLAB_SERVER_TOKEN` for the local API, retaining the former name as a
+  fallback. Preserve JSON envelopes, exit codes, HTTP routes and saved records.
+
+Verification: Ruff, formatting and Pyright passed; **714 offline tests passed**
+and one explicitly opt-in live test was skipped. The editable tool and a separate
+Python 3.12 wheel passed installed CLI checks outside the checkout; the wheel's
+TUI recorded demo also passed. The real legacy profile retained its history
+counts, template/configuration contents and healthy database; all three provider
+keys were found through legacy Keychain entries without displaying values.
+Synthetic regressions cover an active SQLite WAL, ambiguous databases, profile
+selection, credentials and installer failure recovery. All Git objects and
+current files passed the privacy scan; wheel/source inventories contain no
+private profile, database, real credentials or personal paths. The bundled demo
+and datasets are deliberately synthetic. **No live provider API calls were made.**
+
 ## 0.7.1 — 2026-09-21
 
 Status: complete.

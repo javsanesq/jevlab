@@ -8,14 +8,14 @@ import httpx2
 import pytest
 from typesafe_sdk import Choice, JSONContent, Noul, Score
 
-from jev.core.client import Evaluation, SDKClient
-from jev.core.content import LabeledCase, lesson, lessons, pattern, patterns, starter
-from jev.core.errors import JevError
-from jev.core.learning import Learning, exercise_plan
-from jev.core.models import Settings, Template
-from jev.core.service import Workbench
-from jev.core.storage import Storage
-from jev.core.templates import dump_template, parse_template
+from jevlab.core.client import Evaluation, SDKClient
+from jevlab.core.content import LabeledCase, lesson, lessons, pattern, patterns, starter
+from jevlab.core.errors import JevError
+from jevlab.core.learning import Learning, exercise_plan
+from jevlab.core.models import Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.core.storage import Storage
+from jevlab.core.templates import dump_template, parse_template
 
 
 class LabeledEvaluator:

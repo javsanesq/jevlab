@@ -4,7 +4,7 @@ install:
 	uv run python scripts/install.py $(if $(COACH),--coach $(COACH))
 
 dev:
-	uv run --all-extras jev
+	uv run --all-extras jevlab
 
 test:
 	uv run --all-extras pytest -q

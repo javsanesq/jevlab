@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "title": "A customer asks for a refund",
+  "provenance": "Authored illustrative fixture bundled with JevLab. The answers and probabilities were chosen for teaching, not captured from a live Jev request.",
+  "disclaimer": "RECORDED EXAMPLE — illustrative data from disk, not a live call. No key needed, no charge, and nothing is added to your run history.",
+  "run": {
+    "id": "demo-support-illustration-v1",
+    "template_hash": "illustrative-support-triage-v1",
+    "template_name": "support-triage",
+    "started_at": "2026-09-20T00:00:00Z",
+    "finished_at": "2026-09-20T00:00:00Z",
+    "status": "succeeded",
+    "requested_model": "jev-1.13.0",
+    "resolved_model": "jev-1.13.0",
+    "request": {
+      "state": {"ticket": {"message": "I was charged twice for one order. Please refund the duplicate charge."}}
+    },
+    "response": {
+      "model": "jev-1.13.0",
+      "answers": {
+        "route": {
+          "type": "choice",
+          "choice": "billing",
+          "confidence": 0.85,
+          "probabilities": {"billing": 0.90, "technical": 0.07, "other": 0.03}
+        },
+        "impact": {
+          "type": "score",
+          "score": 0.30,
+          "confidence": 0.80,
+          "legend": {"0": "No work disruption described", "1": "Workaround available", "2": "Essential work blocked"},
+          "probabilities": {"0": 0.80, "1": 0.10, "2": 0.10}
+        },
+        "refund_requested": {"type": "noul", "noul": 0.95}
+      },
+      "usage": {"input_tokens": 0, "output_tokens": 0}
+    },
+    "routing": {
+      "route": {"disposition": "automate", "value": "billing", "gate": {"kind": "confidence", "automate_at_or_above": 0.85}},
+      "impact": {"disposition": "review", "value": 0.30, "gate": {"kind": "confidence", "automate_at_or_above": 0.85}},
+      "refund_requested": {"disposition": "automate", "value": true, "gate": {"kind": "noul_probability", "no_at_or_below": 0.10, "yes_at_or_above": 0.90}}
+    },
+    "cost_nanousd": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "price_snapshot": {},
+    "sdk_version": "illustrative-fixture-no-sdk-call"
+  }
+}

@@ -1,4 +1,4 @@
-# jev quickstart
+# JevLab quickstart
 
 Jev makes small judgments: choose a team, rate an issue, or estimate whether a
 message asks for a refund. This workbench lets you try those judgments and see
@@ -7,8 +7,9 @@ their uncertainty. It does not send messages or issue refunds.
 New to Terminal? Use the [complete beginner's guide](GUIDE.md). Already installed?
 Skip to step 4. The source folder should be `jevlab` inside your home folder;
 [installation instructions](GUIDE.md#4-installation) explain how to get it and uv.
-The repository is now **jevlab**; this release's command is still `jev` and its
-data folder is still `~/.jev/`. Keep an existing installation's source folder.
+The command is **jevlab**. New data lives in `~/.jevlab/`; an upgrade keeps using
+an existing `~/.jev/` if no new folder exists, with a notice. Saved work and keys
+remain available. Keep an existing installation's source folder in place.
 
 1. Run this in Terminal:
 
@@ -26,21 +27,22 @@ data folder is still `~/.jev/`. Keep an existing installation's source folder.
    uv run python scripts/install.py
    ```
 
-   **You should see:** installation progress, then an installed `jev` executable.
+   **You should see:** installation progress, then an installed `jevlab` executable.
+   Upgrading replaces the earlier workbench command; use `jevlab` from now on.
    If the command is not found afterward, the full guide explains PATH setup.
 
 3. Run:
 
    ```sh
-   jev --version
+   jevlab --version
    ```
 
-   **You should see:** `jev 0.7.1`, or a later version.
+   **You should see:** `jevlab 0.8.0`, or a later version.
 
 4. Run:
 
    ```sh
-   jev demo
+   jevlab demo
    ```
 
    **You should see:** **RECORDED EXAMPLE**, with bars and plain explanations.
@@ -54,7 +56,7 @@ data folder is still `~/.jev/`. Keep an existing installation's source folder.
 6. Run:
 
    ```sh
-   jev tour
+   jevlab tour
    ```
 
    **You should see:** the welcome tour. Its Continue button leads to optional
@@ -66,7 +68,7 @@ data folder is still `~/.jev/`. Keep an existing installation's source folder.
 7. Run:
 
    ```sh
-   jev
+   jevlab
    ```
 
    **You should see:** the tour if unfinished, otherwise the home screen. Escape
@@ -88,8 +90,8 @@ Escape goes back; Ctrl+Q quits. More options reveals advanced controls.
 Forms explain each field and show corrections while you edit. Expert mode keeps
 descriptions under **Field help**.
 
-**Free commands:** `jev demo` replays the example; `jev doctor` checks local setup;
-`jev guide` opens the full guide; `jev guide --web` opens a local browser copy.
+**Free commands:** `jevlab demo` replays the example; `jevlab doctor` checks local setup;
+`jevlab guide` opens the full guide; `jevlab guide --web` opens a local browser copy.
 Confidence summarizes the spread of probabilities, not the chance of being right.
 Prices are estimates, not caps. JSON and piped commands retain their automation
 rules and should be treated as advanced.

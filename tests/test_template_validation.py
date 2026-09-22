@@ -10,20 +10,20 @@ from pydantic import ValidationError
 from textual.widgets import Button, Input, Static, TextArea
 from typer.testing import CliRunner
 
-from jev.cli.app import app as cli
-from jev.core.config import load_settings
-from jev.core.errors import JevError
-from jev.core.models import Run, Settings, Template
-from jev.core.service import Workbench
-from jev.core.storage import now
-from jev.core.templates import dump_template, parse_template, revision_hash, validation_message
-from jev.tui.app import JevApp
-from jev.tui.editor import QuestionEditor, TemplateEditor
-from jev.tui.screens import SettingsScreen
+from jevlab.cli.app import app as cli
+from jevlab.core.config import load_settings
+from jevlab.core.errors import JevError
+from jevlab.core.models import Run, Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.core.storage import now
+from jevlab.core.templates import dump_template, parse_template, revision_hash, validation_message
+from jevlab.tui.app import JevApp
+from jevlab.tui.editor import QuestionEditor, TemplateEditor
+from jevlab.tui.screens import SettingsScreen
 
 
 @pytest.mark.parametrize(
-    "model", ["jev", "", " ", "jev latest", "jev-latest\n", "```jev-latest```"]
+    "model", ["jev", "", " ", "jevlab latest", "jev-latest\n", "```jev-latest```"]
 )
 def test_reject_malformed_model_in_template_and_settings(design: Template, model: str) -> None:
     data = design.model_dump(mode="json")
@@ -104,7 +104,7 @@ def test_historical_read_preserves_previously_permitted_score_whitespace(design:
 def test_cli_invalid_model_reports_specific_reason_without_request(
     wb: Workbench, design: Template, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("JEV_HOME", str(wb.root))
+    monkeypatch.setenv("JEVLAB_HOME", str(wb.root))
     design.model = "jev"
     wb.templates.path(design.name).write_text(dump_template(design))
     result = CliRunner().invoke(
@@ -120,7 +120,7 @@ def test_cli_invalid_model_reports_specific_reason_without_request(
 def test_cli_invalid_default_model_explains_repair_and_preserves_config(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("JEV_HOME", str(wb.root))
+    monkeypatch.setenv("JEVLAB_HOME", str(wb.root))
     original = (wb.root / "config.toml").read_bytes()
     result = CliRunner().invoke(cli, ["config", "--set", "model=jev", "--json"])
     assert result.exit_code == 2

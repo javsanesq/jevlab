@@ -7,12 +7,12 @@ import pytest
 from conftest import RESPONSE, MockEvaluator
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluation
-from jev.core.compare import compare, comparison_plan
-from jev.core.errors import JevError
-from jev.core.models import Template
-from jev.core.service import Workbench
-from jev.core.templates import fork_template
+from jevlab.core.client import Evaluation
+from jevlab.core.compare import compare, comparison_plan
+from jevlab.core.errors import JevError
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench
+from jevlab.core.templates import fork_template
 
 
 class PairedEvaluator:

@@ -11,11 +11,11 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from jev.cli.app import app
-from jev.cli.guide import GUIDE_TITLE, PAGER_HELP, guide, load_guide, render_guide_html
+from jevlab.cli.app import app
+from jevlab.cli.guide import GUIDE_TITLE, PAGER_HELP, guide, load_guide, render_guide_html
 
-guide_module = importlib.import_module("jev.cli.guide")
-DOCUMENT = "# Beginner's guide\n\nWelcome to jev.\n\n```sh\njev demo\n```\n"
+guide_module = importlib.import_module("jevlab.cli.guide")
+DOCUMENT = "# Beginner's guide\n\nWelcome to JevLab.\n\n```sh\njevlab demo\n```\n"
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def test_json_never_opens_pager_browser_or_user_storage(
     extra: list[str], guide_cli: typer.Typer, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     root = tmp_path / "not-created"
-    monkeypatch.setenv("JEV_HOME", str(root))
+    monkeypatch.setenv("JEVLAB_HOME", str(root))
     pager = Mock(side_effect=AssertionError("JSON must not open the pager"))
     browser = Mock(side_effect=AssertionError("JSON must not open a browser"))
     monkeypatch.setattr(guide_module.console, "pager", pager)
@@ -84,7 +84,7 @@ def test_interactive_guide_uses_pager_with_exit_instructions(
 def test_browser_receives_local_html_from_authoritative_content(
     guide_cli: typer.Typer, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("JEV_HOME", str(tmp_path))
+    monkeypatch.setenv("JEVLAB_HOME", str(tmp_path))
     browser = Mock(return_value=True)
     monkeypatch.setattr(guide_module.webbrowser, "open", browser)
     result = CliRunner().invoke(guide_cli, ["guide", "--web"])
@@ -92,18 +92,18 @@ def test_browser_receives_local_html_from_authoritative_content(
     assert result.exit_code == 0, result.output
     assert destination.is_file()
     html = destination.read_text()
-    assert "Welcome to jev." in html and "jev demo" in html
+    assert "Welcome to JevLab." in html and "jevlab demo" in html
     assert "Opened the beginner's guide in your browser." in result.stdout
     assert f"Local copy: {destination}" in result.stdout
     browser.assert_called_once_with(destination.as_uri(), new=2)
-    assert not (tmp_path / "jev.db").exists()
+    assert not (tmp_path / "jevlab.db").exists()
 
 
 @pytest.mark.parametrize("raised", [False, True])
 def test_browser_failure_keeps_readable_file_and_actionable_error(
     raised: bool, guide_cli: typer.Typer, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("JEV_HOME", str(tmp_path))
+    monkeypatch.setenv("JEVLAB_HOME", str(tmp_path))
     browser = Mock(return_value=False)
     if raised:
         browser.side_effect = OSError("synthetic private browser details")
@@ -114,7 +114,7 @@ def test_browser_failure_keeps_readable_file_and_actionable_error(
     # Rich wraps prose according to terminal width and the temporary path length.
     error_text = " ".join(result.stderr.split())
     assert "default browser could not be opened" in error_text
-    assert "run jev guide to read it here" in error_text
+    assert "run jevlab guide to read it here" in error_text
     assert (tmp_path / "docs" / "guide.html").is_file()
     assert "Traceback" not in result.output
     assert "synthetic private browser details" not in result.output

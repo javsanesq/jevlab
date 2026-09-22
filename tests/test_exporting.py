@@ -13,12 +13,12 @@ import pytest
 from conftest import RESPONSE, MockEvaluator
 from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score, TypeSafeClient
 
-from jev.core.client import verify_response
-from jev.core.errors import JevError
-from jev.core.exporting import ExportLanguage, export_template, write_export
-from jev.core.models import ConfidenceGate, NoulGate, Template
-from jev.core.service import Workbench
-from jev.core.thresholds import route
+from jevlab.core.client import verify_response
+from jevlab.core.errors import JevError
+from jevlab.core.exporting import ExportLanguage, export_template, write_export
+from jevlab.core.models import ConfidenceGate, NoulGate, Template
+from jevlab.core.service import Workbench
+from jevlab.core.thresholds import route
 
 
 def load_export(

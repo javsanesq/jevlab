@@ -10,15 +10,15 @@ from textual.widgets import Static
 from typer.testing import CliRunner
 from typesafe_sdk import JSONContent
 
-from jev.cli.app import app as cli
-from jev.core.client import SDKClient
-from jev.core.errors import JevError
-from jev.core.models import Run, Settings, Template
-from jev.core.service import Workbench
-from jev.presentation import error_for_run, human_error
-from jev.tui.app import JevApp
-from jev.tui.dialogs import ErrorDetails
-from jev.tui.screens import History, Playground, ResultScreen
+from jevlab.cli.app import app as cli
+from jevlab.core.client import SDKClient
+from jevlab.core.errors import JevError
+from jevlab.core.models import Run, Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.presentation import error_for_run, human_error
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import ErrorDetails
+from jevlab.tui.screens import History, Playground, ResultScreen
 
 HTTP_FAILURES = [
     (400, "Unknown model: jev", "api_usage_error", "model_not_found", "jev-latest"),
@@ -29,7 +29,7 @@ HTTP_FAILURES = [
         "bad_request",
         "field",
     ),
-    (401, "This API key has expired.", "invalid_api_key", "authentication", "jev config"),
+    (401, "This API key has expired.", "invalid_api_key", "authentication", "jevlab config"),
     (403, "Project cannot use this model.", "permission_denied", "permission", "project"),
     (429, "Account has insufficient_quota.", "insufficient_quota", "quota", "billing"),
     (404, "Model not found: retired-test", "model_not_found", "model_not_found", "Model"),
@@ -66,9 +66,9 @@ def install_mock_run(
         return await original(template, state, evaluator=evaluator, parent_run_id=parent_run_id)
 
     monkeypatch.setattr(wb, "run", run)
-    monkeypatch.setattr("jev.cli.app.workbench", lambda: wb)
+    monkeypatch.setattr("jevlab.cli.app.workbench", lambda: wb)
     # Cost prompts are tested separately; exercise the real run/error boundary here.
-    monkeypatch.setattr("jev.cli.app.confirm_spend", lambda *args, **kwargs: None)
+    monkeypatch.setattr("jevlab.cli.app.confirm_spend", lambda *args, **kwargs: None)
     return evaluator
 
 
@@ -143,8 +143,8 @@ def test_non_http_failures_reach_cli_with_safe_distinct_diagnostics(
         return await original(template, state, evaluator=evaluator)
 
     monkeypatch.setattr(wb, "run", run)
-    monkeypatch.setattr("jev.cli.app.workbench", lambda: wb)
-    monkeypatch.setattr("jev.cli.app.confirm_spend", lambda *args, **kwargs: None)
+    monkeypatch.setattr("jevlab.cli.app.workbench", lambda: wb)
+    monkeypatch.setattr("jevlab.cli.app.confirm_spend", lambda *args, **kwargs: None)
     result = CliRunner().invoke(
         cli, ["--verbose", "run", "support-triage", "--text", '{"ticket":{"message":"Test"}}']
     )

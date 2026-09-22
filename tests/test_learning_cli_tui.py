@@ -8,24 +8,24 @@ from textual.widgets import DataTable, Input, TextArea
 from typer.testing import CliRunner
 from typesafe_sdk import JSONContent
 
-from jev.cli.app import app as cli
-from jev.coach.service import Advice, Coach, CoachResult
-from jev.core.client import Evaluator
-from jev.core.config import save_settings
-from jev.core.content import lesson, pattern
-from jev.core.models import Run, Settings, Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Confirm
-from jev.tui.editor import TemplateEditor
-from jev.tui.learning import CoachScreen, GradeScreen, LearnScreen, LessonScreen, LibraryScreen
-from jev.tui.screens import Playground, ResultScreen
+from jevlab.cli.app import app as cli
+from jevlab.coach.service import Advice, Coach, CoachResult
+from jevlab.core.client import Evaluator
+from jevlab.core.config import save_settings
+from jevlab.core.content import lesson, pattern
+from jevlab.core.models import Run, Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm
+from jevlab.tui.editor import TemplateEditor
+from jevlab.tui.learning import CoachScreen, GradeScreen, LearnScreen, LessonScreen, LibraryScreen
+from jevlab.tui.screens import Playground, ResultScreen
 
 runner = CliRunner()
 
 
 def test_new_commands_have_json_and_fork_preserves_existing() -> None:
-    root = Path(os.environ["JEV_HOME"])
+    root = Path(os.environ["JEVLAB_HOME"])
     save_settings(root, Settings(credential_mode="environment"))
     commands = [
         ["learn", "--json"],

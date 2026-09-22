@@ -11,28 +11,28 @@ from test_learning import LabeledEvaluator
 from typer.testing import CliRunner
 from typesafe_sdk import JSONContent
 
-from jev.cli.app import app
-from jev.cli.evaluation import authorize
-from jev.cli.spending import confirm_spend
-from jev.coach.service import Coach, CoachResult
-from jev.core.client import Evaluator
-from jev.core.content import lesson, pattern, starter
-from jev.core.errors import JevError
-from jev.core.models import Run, Settings, Template
-from jev.core.service import Workbench
-from jev.core.spending import (
+from jevlab.cli.app import app
+from jevlab.cli.evaluation import authorize
+from jevlab.cli.spending import confirm_spend
+from jevlab.coach.service import Coach, CoachResult
+from jevlab.core.client import Evaluator
+from jevlab.core.content import lesson, pattern, starter
+from jevlab.core.errors import JevError
+from jevlab.core.models import Run, Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.core.spending import (
     SpendEstimate,
     combine_estimates,
     estimate_coach,
     estimate_run,
 )
-from jev.presentation import human_error
+from jevlab.presentation import human_error
 
-commands = importlib.import_module("jev.cli.app")
-learning = importlib.import_module("jev.cli.learning")
-spending = importlib.import_module("jev.cli.spending")
-evaluation = importlib.import_module("jev.cli.evaluation")
-harness = importlib.import_module("jev.cli.harness")
+commands = importlib.import_module("jevlab.cli.app")
+learning = importlib.import_module("jevlab.cli.learning")
+spending = importlib.import_module("jevlab.cli.spending")
+evaluation = importlib.import_module("jevlab.cli.evaluation")
+harness = importlib.import_module("jevlab.cli.harness")
 runner = CliRunner()
 
 
@@ -282,7 +282,7 @@ def test_online_doctor_can_cancel_before_connection(
 def test_server_confirmation_explains_delegated_spending(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("JEV_SERVER_TOKEN", "local-test-token-at-least-32-characters")
+    monkeypatch.setenv("JEVLAB_SERVER_TOKEN", "local-test-token-at-least-32-characters")
     monkeypatch.setattr(harness, "workbench", lambda: wb)
     terminal(monkeypatch)
     result = runner.invoke(app, ["serve"], input="n\n")

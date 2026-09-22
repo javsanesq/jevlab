@@ -16,25 +16,25 @@ from conftest import MockEvaluator
 from textual.widgets import Button, Input, Select, Static, TextArea
 from typer.testing import CliRunner
 
-from jev.cli.app import app as cli
-from jev.core.config import save_settings
-from jev.core.models import Run, Settings, Template
-from jev.core.retention import CleanupPlan, CleanupReport
-from jev.core.retention import cleanup as actual_cleanup
-from jev.core.service import Workbench
-from jev.core.storage import Storage
-from jev.core.templates import revision_hash
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Confirm
-from jev.tui.harness import CleanupScreen, ExportScreen
-from jev.tui.screens import Home
+from jevlab.cli.app import app as cli
+from jevlab.core.config import save_settings
+from jevlab.core.models import Run, Settings, Template
+from jevlab.core.retention import CleanupPlan, CleanupReport
+from jevlab.core.retention import cleanup as actual_cleanup
+from jevlab.core.service import Workbench
+from jevlab.core.storage import Storage
+from jevlab.core.templates import revision_hash
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm
+from jevlab.tui.harness import CleanupScreen, ExportScreen
+from jevlab.tui.screens import Home
 
 runner = CliRunner()
 TOKEN = "synthetic-local-test-token-never-a-provider-key"
 
 
 def profile() -> Workbench:
-    root = Path(os.environ["JEV_HOME"])
+    root = Path(os.environ["JEVLAB_HOME"])
     save_settings(root, Settings(credential_mode="environment"))
     return Workbench(root, maintain=False)
 
@@ -105,7 +105,7 @@ def test_clean_cli_dry_run_then_apply_json() -> None:
 
 def test_serve_check_is_offline_and_never_emits_token(monkeypatch: pytest.MonkeyPatch) -> None:
     profile()
-    monkeypatch.setenv("JEV_SERVER_TOKEN", TOKEN)
+    monkeypatch.setenv("JEVLAB_SERVER_TOKEN", TOKEN)
 
     def no_bind(self: socket.socket, address: object) -> None:
         pytest.fail("serve --check must not bind a socket")
@@ -116,12 +116,12 @@ def test_serve_check_is_offline_and_never_emits_token(monkeypatch: pytest.Monkey
     data = json.loads(result.stdout)["data"]
     assert data["check_only"] and data["url"] == "http://127.0.0.1:8767"
     assert data["requests_per_second"] == 3 and not data["network_checked"]
-    assert data["token_source"] == "JEV_SERVER_TOKEN"
+    assert data["token_source"] == "JEVLAB_SERVER_TOKEN"
     assert TOKEN not in result.output
 
 
 def test_serve_missing_token_has_json_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("JEV_SERVER_TOKEN", raising=False)
+    monkeypatch.delenv("JEVLAB_SERVER_TOKEN", raising=False)
     result = runner.invoke(cli, ["serve", "--check", "--json"])
     assert result.exit_code == 3, result.output
     payload = json.loads(result.stdout)
@@ -130,7 +130,7 @@ def test_serve_missing_token_has_json_error(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_serve_bind_failure_emits_only_error_json(monkeypatch: pytest.MonkeyPatch) -> None:
     profile()
-    monkeypatch.setenv("JEV_SERVER_TOKEN", TOKEN)
+    monkeypatch.setenv("JEVLAB_SERVER_TOKEN", TOKEN)
     calls: list[object] = []
 
     def occupied(self: socket.socket, address: object) -> None:
@@ -180,8 +180,8 @@ def test_automatic_retention_throttles_even_when_active_data_exceeds_limit(
             ),
         )
 
-    monkeypatch.setattr("jev.core.retention.cleanup", observed)
-    monkeypatch.setattr("jev.core.service.monotonic", lambda: clock[0])
+    monkeypatch.setattr("jevlab.core.retention.cleanup", observed)
+    monkeypatch.setattr("jevlab.core.service.monotonic", lambda: clock[0])
     wb.maintain_history(force=True, protect={"first"})
     clock[0] += 59
     wb.maintain_history(protect={"too-soon"})
@@ -208,7 +208,7 @@ async def test_maintenance_failure_cannot_change_successful_inference(
         captured.append(protect_run_ids)
         raise sqlite3.OperationalError("synthetic database busy")
 
-    monkeypatch.setattr("jev.core.retention.cleanup", unavailable)
+    monkeypatch.setattr("jevlab.core.retention.cleanup", unavailable)
     wb.last_maintenance = 0
     run = await wb.run(design, "test", evaluator=MockEvaluator())
     assert run.status == "succeeded" and wb.storage.get(run.id).status == "succeeded"
@@ -273,7 +273,7 @@ async def test_cleanup_screen_waits_for_thread_before_back_or_quit(
             raise AssertionError("test did not release cleanup worker")
         return actual_cleanup(storage, settings, dry_run=dry_run)
 
-    monkeypatch.setattr("jev.tui.harness.cleanup", delayed)
+    monkeypatch.setattr("jevlab.tui.harness.cleanup", delayed)
     app = JevApp(wb)
     async with app.run_test(size=(110, 40)) as pilot:
         try:
@@ -303,7 +303,7 @@ async def test_cleanup_screen_busy_preview_cannot_enable_apply(
     def busy(storage: Storage, settings: Settings, *, dry_run: bool = True) -> CleanupReport:
         return report
 
-    monkeypatch.setattr("jev.tui.harness.cleanup", busy)
+    monkeypatch.setattr("jevlab.tui.harness.cleanup", busy)
     app = JevApp(wb)
     async with app.run_test(size=(110, 40)):
         await app.push_screen(CleanupScreen(wb))
@@ -327,11 +327,11 @@ async def test_cleanup_preview_error_clears_previous_apply_permission(
         await app.workers.wait_for_complete()
         screen = cast(CleanupScreen, app.screen)
         assert screen.report is not None
-        monkeypatch.setattr("jev.tui.harness.cleanup", unavailable)
+        monkeypatch.setattr("jevlab.tui.harness.cleanup", unavailable)
         screen.run_cleanup()
         await app.workers.wait_for_complete()
         await pilot.pause()
         assert screen.report is None and screen.query_one("#cleanup-apply", Button).disabled
         message = str(screen.query_one("#cleanup-status", Static).render())
         assert "Local history could not be read or updated" in message
-        assert "jev doctor" in message and "synthetic read failure" not in message
+        assert "jevlab doctor" in message and "synthetic read failure" not in message

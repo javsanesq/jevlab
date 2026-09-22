@@ -6,15 +6,15 @@ import pytest
 from conftest import MockEvaluator
 from textual.widgets import Button, Collapsible, Input, Select, TextArea
 
-from jev.coach.service import Coach
-from jev.core.content import lesson
-from jev.core.exporting import export_template
-from jev.core.models import Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.fields import Field
-from jev.tui.harness import ExportScreen, export_path_error
-from jev.tui.learning import CoachScreen, LessonScreen, dataset_export_path
+from jevlab.coach.service import Coach
+from jevlab.core.content import lesson
+from jevlab.core.exporting import export_template
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.fields import Field
+from jevlab.tui.harness import ExportScreen, export_path_error
+from jevlab.tui.learning import CoachScreen, LessonScreen, dataset_export_path
 
 
 @pytest.mark.parametrize("simple", [True, False])

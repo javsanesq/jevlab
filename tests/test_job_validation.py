@@ -8,12 +8,12 @@ from conftest import MockEvaluator
 from test_phase3_tui import dataset, finish_job, mock_runs
 from textual.widgets import Input, Static
 
-from jev.core.jobs import BatchService
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.evaluation import EvalScreen, JobScreen
-from jev.tui.fields import Field, output_file
-from jev.tui.spending import JobCostConfirm
+from jevlab.core.jobs import BatchService
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.evaluation import EvalScreen, JobScreen
+from jevlab.tui.fields import Field, output_file
+from jevlab.tui.spending import JobCostConfirm
 
 
 @pytest.mark.parametrize(

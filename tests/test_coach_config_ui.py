@@ -10,16 +10,16 @@ from textual.widgets import Button, Input, Select, Static, TextArea
 from textual.worker import WorkerCancelled
 from typer.testing import CliRunner
 
-from jev.cli.app import app as cli
-from jev.coach.service import Coach, CoachResult
-from jev.core.coach_models import DEFAULT_COACH_MODELS, CoachProvider, normalize_coach_model
-from jev.core.config import load_settings, save_settings
-from jev.core.errors import JevError
-from jev.core.models import Settings
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.learning import CoachScreen
-from jev.tui.screens import SettingsScreen
+from jevlab.cli.app import app as cli
+from jevlab.coach.service import Coach, CoachResult
+from jevlab.core.coach_models import DEFAULT_COACH_MODELS, CoachProvider, normalize_coach_model
+from jevlab.core.config import load_settings, save_settings
+from jevlab.core.errors import JevError
+from jevlab.core.models import Settings
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.learning import CoachScreen
+from jevlab.tui.screens import SettingsScreen
 
 
 def test_legacy_config_migrates_display_name_without_changing_other_provider(
@@ -61,7 +61,7 @@ def test_legacy_provider_switch_recovers_model_ownership_and_allows_cli_repair(
     (root / "config.toml").write_text(
         f'credential_mode="environment"\ncoach_provider="{provider}"\ncoach_model="{legacy}"\n'
     )
-    monkeypatch.setenv("JEV_HOME", str(root))
+    monkeypatch.setenv("JEVLAB_HOME", str(root))
     settings = load_settings(root)
     assert settings.model_dump()[f"{owner}_model"] == expected
     assert settings.coach_provider == provider
@@ -167,7 +167,7 @@ def test_invalid_model_config_is_one_safe_json_envelope_with_exit_two(
     field: str,
     value: str,
 ) -> None:
-    monkeypatch.setattr("jev.cli.app.workbench", lambda: wb)
+    monkeypatch.setattr("jevlab.cli.app.workbench", lambda: wb)
     before = wb.settings.model_dump()
     result = CliRunner().invoke(cli, ["config", "--set", f"{field}={value}", "--json"])
     assert result.exit_code == 2, result.output
@@ -187,7 +187,7 @@ def test_invalid_model_config_is_one_safe_json_envelope_with_exit_two(
 def test_human_config_model_error_uses_stderr_and_has_provider_guidance(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("jev.cli.app.workbench", lambda: wb)
+    monkeypatch.setattr("jevlab.cli.app.workbench", lambda: wb)
     result = CliRunner().invoke(cli, ["config", "--set", "openai_model=claude-opus-5"])
     assert result.exit_code == 2 and result.stdout == ""
     assert "coach provider or model" in result.stderr
@@ -216,7 +216,7 @@ def test_invalid_legacy_file_is_reported_without_echoing_its_contents(tmp_path: 
 def test_cli_old_model_field_and_provider_only_switch_keep_separate_models(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("jev.cli.app.workbench", lambda: wb)
+    monkeypatch.setattr("jevlab.cli.app.workbench", lambda: wb)
     commands = [
         (["coach_provider=anthropic", "coach_model=Opus 5"], "claude-opus-5"),
         (["coach_provider=openai"], DEFAULT_COACH_MODELS["openai"]),
@@ -276,7 +276,7 @@ async def test_unexpected_coach_failure_restores_ui_and_never_shows_exception_da
         await pilot.pause()
         output = str(screen.query_one("#coach-response", Static).content)
         assert "unexpected internal error" in output
-        assert "jev doctor --coach" in output
+        assert "jevlab doctor --coach" in output
         assert "Requesting advice" not in output
         assert "synthetic-sensitive-marker" not in output and "Traceback" not in output
         assert not screen.busy and not screen.query_one("#ask-coach", Button).disabled

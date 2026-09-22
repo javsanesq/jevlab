@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from jev.core.models import Settings
-from jev.core.service import Workbench
+from jevlab.core.models import Settings
+from jevlab.core.service import Workbench
 
 
 @pytest.mark.live

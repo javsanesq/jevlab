@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 from textual.widgets import Button, Collapsible, Input, Select, TextArea
 
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.editor import QuestionEditor, TemplateEditor
-from jev.tui.evaluation import JobScreen
-from jev.tui.fields import Field, input_file, numeric, output_file
-from jev.tui.guidance import Explain
-from jev.tui.screens import Playground, SettingsScreen
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.editor import QuestionEditor, TemplateEditor
+from jevlab.tui.evaluation import JobScreen
+from jevlab.tui.fields import Field, input_file, numeric, output_file
+from jevlab.tui.guidance import Explain
+from jevlab.tui.screens import Playground, SettingsScreen
 
 
 @pytest.mark.parametrize("mode", ["simple", "expert"])

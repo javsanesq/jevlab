@@ -9,13 +9,13 @@ import pytest
 from conftest import RESPONSE, MockEvaluator
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluation
-from jev.core.credentials import Credentials
-from jev.core.errors import JevError
-from jev.core.models import Template
-from jev.core.pricing import price
-from jev.core.service import Workbench, parse_state
-from jev.core.templates import dump_template, parse_template
+from jevlab.core.client import Evaluation
+from jevlab.core.credentials import Credentials
+from jevlab.core.errors import JevError
+from jevlab.core.models import Template
+from jevlab.core.pricing import price
+from jevlab.core.service import Workbench, parse_state
+from jevlab.core.templates import dump_template, parse_template
 
 
 @pytest.mark.parametrize(
@@ -207,13 +207,13 @@ def test_core_has_no_ui_imports() -> None:
     import ast
     from importlib.util import resolve_name
 
-    from jev import core
+    from jevlab import core
 
     root = Path(core.__file__).parent
-    forbidden = ("textual", "rich", "typer", "jev.tui", "jev.cli", "jev.coach")
+    forbidden = ("textual", "rich", "typer", "jevlab.tui", "jevlab.cli", "jevlab.coach")
     for path in root.rglob("*.py"):
         tree = ast.parse(path.read_text())
-        package = ".".join(("jev", "core", *path.relative_to(root).parts[:-1]))
+        package = ".".join(("jevlab", "core", *path.relative_to(root).parts[:-1]))
         for node in ast.walk(tree):
             imports: list[str] = []
             if isinstance(node, ast.Import):

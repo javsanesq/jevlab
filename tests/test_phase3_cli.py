@@ -10,10 +10,10 @@ from conftest import MockEvaluator
 from typer.testing import CliRunner
 from typesafe_sdk import JSONContent
 
-from jev.cli.app import app
-from jev.core.client import Evaluator
-from jev.core.models import Run, Template
-from jev.core.service import Workbench
+from jevlab.cli.app import app
+from jevlab.core.client import Evaluator
+from jevlab.core.models import Run, Template
+from jevlab.core.service import Workbench
 
 runner = CliRunner()
 
@@ -22,7 +22,7 @@ runner = CliRunner()
 def cli_jobs(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Workbench, MockEvaluator, Path]:
-    import jev.cli.evaluation as commands
+    import jevlab.cli.evaluation as commands
 
     monkeypatch.setattr(commands, "workbench", lambda: wb)
     original = wb.run
@@ -241,7 +241,7 @@ def test_phase3_entrypoint_usage_errors_are_json(
     arguments: list[str],
 ) -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "jev", *arguments],
+        [sys.executable, "-m", "jevlab", *arguments],
         capture_output=True,
         text=True,
         input="State",

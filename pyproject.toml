@@ -1,6 +1,6 @@
 [project]
-name = "jev-workbench"
-version = "0.7.1"
+name = "jevlab"
+version = "0.8.0"
 description = "A terminal workbench for TypeSafe Jev decisions"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -23,17 +23,17 @@ anthropic = ["anthropic>=1.7,<2"]
 openai = ["openai>=3.16,<4"]
 
 [project.scripts]
-jev = "jev.cli.app:main"
+jevlab = "jevlab.cli.app:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jev"]
+packages = ["src/jevlab"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"docs/GUIDE.md" = "jev/resources/GUIDE.md"
+"docs/GUIDE.md" = "jevlab/resources/GUIDE.md"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=1", "ruff", "pyright", "types-PyYAML", "langchain-core==1.6.3", "pydantic-ai-slim==2.46.0"]

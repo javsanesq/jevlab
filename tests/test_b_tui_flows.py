@@ -11,17 +11,17 @@ from test_phase3_tui import dataset, mock_runs
 from textual.widgets import Button, Checkbox, Input, Static, TextArea
 from typesafe_sdk import JSONContent
 
-from jev.coach.service import Coach
-from jev.core.client import Evaluator
-from jev.core.content import lesson, pattern, starter
-from jev.core.jobs import JobPlan
-from jev.core.models import Run, Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Confirm
-from jev.tui.evaluation import CompareScreen, JobScreen
-from jev.tui.harness import ExportScreen
-from jev.tui.learning import CoachScreen, GradeScreen, LessonScreen
+from jevlab.coach.service import Coach
+from jevlab.core.client import Evaluator
+from jevlab.core.content import lesson, pattern, starter
+from jevlab.core.jobs import JobPlan
+from jevlab.core.models import Run, Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm
+from jevlab.tui.evaluation import CompareScreen, JobScreen
+from jevlab.tui.harness import ExportScreen
+from jevlab.tui.learning import CoachScreen, GradeScreen, LessonScreen
 
 
 def simple(wb: Workbench) -> None:
@@ -266,7 +266,7 @@ async def test_preview_worker_failure_surfaces_safely_and_restores_controls(
         monkeypatch.setattr(screen.service, "plan", fail)
         await screen.prepare().wait()
         message = str(screen.query_one("#job-status", Static).content)
-        assert "What happened:" in message and "jev doctor" in message
+        assert "What happened:" in message and "jevlab doctor" in message
         assert "secret" not in message and "secret" not in app.last_error
         assert "Details:" in app.last_error
         assert not screen.busy
@@ -281,7 +281,7 @@ async def test_comparison_worker_failure_does_not_leave_a_running_message(
     def fail(*args: object, **kwargs: object) -> None:
         raise RuntimeError("private internal context")
 
-    monkeypatch.setattr("jev.tui.evaluation.comparison_plan", fail)
+    monkeypatch.setattr("jevlab.tui.evaluation.comparison_plan", fail)
     app = JevApp(wb, start="compare")
     async with app.run_test(size=(80, 24)):
         screen = app.screen

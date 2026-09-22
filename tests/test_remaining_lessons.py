@@ -7,13 +7,13 @@ import httpx2
 import pytest
 from typesafe_sdk import Choice, JSONContent, Noul, Score
 
-from jev.core.client import Evaluation, SDKClient
-from jev.core.content import LabeledCase, lesson, lessons, pattern, starter
-from jev.core.evaluation import threshold_stats
-from jev.core.learning import GradeReport, Learning, exercise_plan
-from jev.core.models import ConfidenceGate, NoulGate, Settings, Template
-from jev.core.service import Workbench
-from jev.core.templates import dump_template, parse_template
+from jevlab.core.client import Evaluation, SDKClient
+from jevlab.core.content import LabeledCase, lesson, lessons, pattern, starter
+from jevlab.core.evaluation import threshold_stats
+from jevlab.core.learning import GradeReport, Learning, exercise_plan
+from jevlab.core.models import ConfidenceGate, NoulGate, Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.core.templates import dump_template, parse_template
 
 
 class LessonEvaluator:

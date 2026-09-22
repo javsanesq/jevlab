@@ -12,13 +12,13 @@ import pytest
 from conftest import MockEvaluator
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluation
-from jev.core.datasets import DatasetRow, iter_dataset
-from jev.core.errors import JevError
-from jev.core.jobs import BatchService, JobKind
-from jev.core.models import ConfidenceGate, Template
-from jev.core.service import Workbench
-from jev.core.storage import Storage
+from jevlab.core.client import Evaluation
+from jevlab.core.datasets import DatasetRow, iter_dataset
+from jevlab.core.errors import JevError
+from jevlab.core.jobs import BatchService, JobKind
+from jevlab.core.models import ConfidenceGate, Template
+from jevlab.core.service import Workbench
+from jevlab.core.storage import Storage
 
 
 def dataset(tmp_path: Path, count: int = 3, *, labels: bool = True) -> Path:
@@ -261,13 +261,13 @@ async def test_export_failure_is_reported_and_can_rebuild_without_paid_calls(
         raise OSError("disk full")
 
     with monkeypatch.context() as patch:
-        patch.setattr("jev.core.jobs.os.replace", fail_replace)
+        patch.setattr("jevlab.core.jobs.os.replace", fail_replace)
         report = await service.run(
             design, source, output=output, evaluator=evaluator, requests_per_second=1000
         )
     assert report.status == "failed" and report.succeeded == 3 and report.error
     assert report.error["code"] == "output_error"
-    assert not list(tmp_path.glob(".jev-output-*"))
+    assert not list(tmp_path.glob(".jevlab-output-*"))
     report = await service.run(design, source, resume_id=report.id, evaluator=evaluator)
     assert report.status == "completed" and len(evaluator.requests) == 3
     assert len(output.read_text().splitlines()) == 3
@@ -371,7 +371,7 @@ async def test_edit_undo_cannot_attach_original_labels_to_changed_api_input(
 ) -> None:
     from collections.abc import Iterator
 
-    from jev.core.datasets import DatasetRow, iter_dataset
+    from jevlab.core.datasets import DatasetRow, iter_dataset
 
     calls = 0
 
@@ -385,7 +385,7 @@ async def test_edit_undo_cannot_attach_original_labels_to_changed_api_input(
             # Simulate an edit only while workers consume the source, followed by undo.
             yield row.model_copy(update={"state": "Changed input"}) if current == 3 else row
 
-    monkeypatch.setattr("jev.core.jobs.iter_dataset", change_worker_pass)
+    monkeypatch.setattr("jevlab.core.jobs.iter_dataset", change_worker_pass)
     report = await BatchService(wb).run(
         design,
         dataset(tmp_path, 1),
@@ -522,7 +522,7 @@ async def test_setup_failures_are_saved_without_partial_rows_and_resume_without_
 
     with monkeypatch.context() as broken:
         if failure == "row_read":
-            broken.setattr("jev.core.jobs.iter_dataset", fail_during_initial_row_read)
+            broken.setattr("jevlab.core.jobs.iter_dataset", fail_during_initial_row_read)
         else:
             broken.setattr(
                 wb.storage,

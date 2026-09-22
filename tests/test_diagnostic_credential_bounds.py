@@ -11,13 +11,13 @@ import pytest
 from textual.widgets import Static
 from typer.testing import CliRunner
 
-from jev.core import doctor
-from jev.core.compare import compare
-from jev.core.credentials import Credentials, Provider
-from jev.core.models import Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.screens import SettingsScreen
+from jevlab.core import doctor
+from jevlab.core.compare import compare
+from jevlab.core.credentials import Credentials, Provider
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.screens import SettingsScreen
 
 
 def test_status_keeps_completed_sources_and_stops_after_timed_out_lookup(
@@ -79,7 +79,7 @@ async def test_status_is_callable_from_an_active_event_loop(
 def test_actual_doctor_cli_bounds_preflight_and_reports_unknown_key_status(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    commands = importlib.import_module("jev.cli.app")
+    commands = importlib.import_module("jevlab.cli.app")
     release = Event()
     attempts: list[Provider] = []
     wb.settings.deadline_seconds = 0.03
@@ -159,7 +159,7 @@ async def test_simple_tui_doctor_explains_timeout_instead_of_claiming_missing_ke
 def test_comparison_keychain_deadline_exits_loop_and_keeps_linked_failures(
     wb: Workbench, design: Template, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    comparisons = importlib.import_module("jev.core.compare")
+    comparisons = importlib.import_module("jevlab.core.compare")
     release = Event()
     attempts = 0
     wb.settings.deadline_seconds = 0.03

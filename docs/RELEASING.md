@@ -1,4 +1,4 @@
-# Releasing Jev
+# Releasing JevLab
 
 The owner has authorized publishing completed, verified phase checkpoints to
 GitHub as development proceeds, followed by a stop for review. There is no
@@ -12,12 +12,12 @@ publication of private data, or authorize force-pushing shared history.
 1. Finish the intended change and its documentation. A partially implemented
    task is not release-ready even if the current tests pass.
 2. Set the same application version in `pyproject.toml` and
-   `src/jev/__init__.py`, and update `uv.lock`. Do not reuse a published version.
+   `src/jevlab/__init__.py`, and update `uv.lock`. Do not reuse a published version.
 3. Add the version to [CHANGELOG.md](../CHANGELOG.md), describing the final behavior,
    limitations, verification, and any actual live calls separately from mocks.
 4. Run `make lint` and `make test`. Both must pass. A skipped, explicitly opt-in
    live test is expected; do not make paid API calls merely to publish a release.
-5. Run `make install` and verify the installed `jev` command from a directory
+5. Run `make install` and verify the installed `jevlab` command from a directory
    outside the source checkout, such as a temporary directory. Use an isolated profile without
    keys for free demo, help, diagnostics, and JSON smoke checks. Also verify any
    release-specific behavior. Record the commands and results in the checkpoint.
@@ -39,8 +39,9 @@ datasets, documentation, and reproducible example images. Inspect files for real
 credential literals, private endpoints, personal paths, local run identifiers,
 private input states, and account-specific reports before staging them.
 
-Never stage `~/.jev/`, configuration containing credentials, Keychain material,
-environment files containing secrets, history databases or sidecars, logs,
+Never stage `~/.jevlab/` or a legacy `~/.jev/` profile, configuration containing
+credentials, Keychain material, environment files containing secrets, history
+databases or sidecars, logs,
 personal datasets, local outputs, virtual environments, or caches. Do not copy
 the uv cache into the repository. An exported template may contain private
 examples or notes; review it before publication too.
@@ -84,4 +85,6 @@ change the user's keys, models, preferences, or saved history.
 The current repository is [jevlab](https://github.com/javsanesq/jevlab), starting
 with one clean initial commit authored as Javi. Its first checkpoint is 0.7.0;
 it includes the verified 0.6.1 error fixes. Earlier development records remain
-as documentation. The installed command remains `jev` until the rename phase.
+as historical documentation. Since 0.8.0, the package and command are `jevlab`;
+there is no installed `jev` shim. Existing profiles and Keychain entries are
+preserved through compatibility reads rather than copying private data.

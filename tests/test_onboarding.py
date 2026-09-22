@@ -3,15 +3,15 @@
 from textual.app import App
 from textual.widgets import Button, Input, Static
 
-from jev.core.config import load_settings
-from jev.core.guidance import explain_control
-from jev.core.service import Workbench
-from jev.tui.base import WorkbenchScreen
-from jev.tui.guidance import DemoScreen, Explain, Glossary, TourScreen
+from jevlab.core.config import load_settings
+from jevlab.core.guidance import explain_control
+from jevlab.core.service import Workbench
+from jevlab.tui.base import WorkbenchScreen
+from jevlab.tui.guidance import DemoScreen, Explain, Glossary, TourScreen
 
 
 class GuidanceApp(App[None]):
-    CSS_PATH = "../src/jev/tui/theme.tcss"
+    CSS_PATH = "../src/jevlab/tui/theme.tcss"
 
     def __init__(self, wb: Workbench) -> None:
         super().__init__()

@@ -7,7 +7,7 @@ packages and mock only the HTTP transport. No paid calls are needed to export.
 ## Python
 
 ```sh
-jev export support-triage --lang python --output decision.py
+jevlab export support-triage --lang python --output decision.py
 # In your own uv project:
 uv add 'typesafe-sdk==0.7.0'
 ```
@@ -59,7 +59,7 @@ and [retry policy](https://docs.typesafe.ai/sdk/python/api/retries).
 ## LangChain
 
 ```sh
-jev export support-triage --lang langchain --output decision_chain.py
+jevlab export support-triage --lang langchain --output decision_chain.py
 uv add 'typesafe-sdk==0.7.0' 'langchain-core==1.6.3'
 ```
 
@@ -83,7 +83,7 @@ wraps the official SDK to keep the workbench's request and validation path.
 ## Pydantic AI
 
 ```sh
-jev export support-triage --lang pydantic-ai --output decision_tool.py
+jevlab export support-triage --lang pydantic-ai --output decision_tool.py
 uv add 'typesafe-sdk==0.7.0' 'pydantic-ai-slim==2.46.0'
 ```
 
@@ -118,7 +118,7 @@ strings in structured criteria, missing thresholds, inclusive boundary values,
 invalid state, and refusing existing files or symlinks. Standalone generated
 modules pass Pyright as well as the workbench's own checks.
 
-Only the receiving application needs framework packages; `jev` does not require
+Only the receiving application needs framework packages; `jevlab` does not require
 them for exporting. Imports make no inference calls. Generated modules suppress
 SDK/HTTP wire logging and write no local history. Host framework tracing and
 callbacks are separate facilities that can record inputs and results; configure

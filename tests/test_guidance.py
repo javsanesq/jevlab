@@ -8,10 +8,10 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from jev.cli.guidance import register_guidance
-from jev.core.demo import load_demo
-from jev.core.guidance import GLOSSARY, explain_answer, explain_control
-from jev.core.models import Run
+from jevlab.cli.guidance import register_guidance
+from jevlab.core.demo import load_demo
+from jevlab.core.guidance import GLOSSARY, explain_answer, explain_control
+from jevlab.core.models import Run
 
 
 @pytest.fixture
@@ -101,9 +101,9 @@ def test_json_guidance_is_free_without_home_or_key_access(
     def prohibited() -> None:
         pytest.fail("Free machine guidance must not initialize user storage or access keys.")
 
-    monkeypatch.setattr("jev.cli.guidance.workbench", prohibited)
+    monkeypatch.setattr("jevlab.cli.guidance.workbench", prohibited)
     root = tmp_path / "not-created"
-    monkeypatch.setenv("JEV_HOME", str(root))
+    monkeypatch.setenv("JEVLAB_HOME", str(root))
     result = CliRunner().invoke(guidance_cli, [command, "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.stdout)

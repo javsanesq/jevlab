@@ -8,11 +8,11 @@ import pytest
 from conftest import MockEvaluator
 from typer.testing import CliRunner
 
-from jev.cli.app import app
-from jev.core.errors import JevError
-from jev.core.jobs import BatchService, JobPlan
-from jev.core.models import Template
-from jev.core.service import Workbench
+from jevlab.cli.app import app
+from jevlab.core.errors import JevError
+from jevlab.core.jobs import BatchService, JobPlan
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench
 
 
 def write_cases(path: Path, count: int = 1, state: str = "Refund ticket") -> None:
@@ -143,8 +143,8 @@ async def test_resume_approval_binds_case_status_not_only_count_and_cost(
 def test_cli_binds_confirmation_before_dispatch(
     command: str, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    commands = importlib.import_module("jev.cli.evaluation")
-    spending = importlib.import_module("jev.cli.spending")
+    commands = importlib.import_module("jevlab.cli.evaluation")
+    spending = importlib.import_module("jevlab.cli.spending")
     path, output = tmp_path / "cases.jsonl", tmp_path / "result.jsonl"
     write_cases(path)
     monkeypatch.setattr(commands, "workbench", lambda: wb)

@@ -1,11 +1,11 @@
-# jev workbench/harness
+# JevLab
 
 A place to try small AI judgments and understand their answers. Give it a customer
 message, for example, and ask which team should help, how disruptive the problem
 is, and whether the customer wants a refund. See the alternatives, uncertainty,
 and the rule for when a person should check the result.
 
-The **Jev model** is made by TypeSafe. This independent **jev workbench** helps you
+The **Jev model** is made by TypeSafe. This independent **JevLab workbench** helps you
 use it from your Mac's terminal. It saves reusable designs, results, and learning
 progress. It does not send customer messages, issue refunds, or execute the
 model's suggested action. An optional coach can suggest clearer questions.
@@ -20,17 +20,17 @@ a real worked example, and troubleshooting.
 If already installed, run one command at a time:
 
 ```sh
-jev tour
-jev demo
-jev guide
+jevlab tour
+jevlab demo
+jevlab guide
 ```
 
 The tour introduces the app. The demo is a clearly labeled illustrative recording
 stored on disk: no key, network request, or charge. The guide is available offline;
-`jev guide --web` opens a local browser copy. To use the live model, save your
-TypeSafe key in macOS Keychain through the tour or `jev config`.
+`jevlab guide --web` opens a local browser copy. To use the live model, save your
+TypeSafe key in macOS Keychain through the tour or `jevlab config`.
 
-Run `jev` to open the workbench. **Ctrl+E** explains the focused control,
+Run `jevlab` to open the workbench. **Ctrl+E** explains the focused control,
 **Ctrl+G** opens the glossary, **Esc** goes back, and **Ctrl+Q** quits.
 Simple mode is the default; **More options** reveals advanced controls.
 Every form field has a label, explanation, example, and local validation where
@@ -45,15 +45,15 @@ piped, and unattended commands keep their existing scripting budget rules.
 
 | Use | Start here |
 | --- | --- |
-| Try and edit a reusable decision design | `jev` |
-| Revisit saved results | `jev history` |
-| Practice with ten short lessons | `jev learn` |
-| Browse seven example patterns | `jev library` |
-| Test accuracy and tune human-review rules | `jev eval` |
-| Process a file of cases | `jev batch` |
-| Compare two designs | `jev compare` |
-| Ask an optional design coach | `jev coach` |
-| Check local setup | `jev doctor` |
+| Try and edit a reusable decision design | `jevlab` |
+| Revisit saved results | `jevlab history` |
+| Practice with ten short lessons | `jevlab learn` |
+| Browse seven example patterns | `jevlab library` |
+| Test accuracy and tune human-review rules | `jevlab eval` |
+| Process a file of cases | `jevlab batch` |
+| Compare two designs | `jevlab compare` |
+| Ask an optional design coach | `jevlab coach` |
+| Check local setup | `jevlab doctor` |
 
 ![Playground with illustrative typed answers and probability bars](docs/assets/playground.svg)
 
@@ -65,9 +65,9 @@ benchmark or live inference. [Reproduce the screenshots](#portfolio-screenshots)
 Requires macOS and Python 3.12+, managed with
 [uv](https://docs.astral.sh/uv/getting-started/installation/). The beginner guide
 uses a ZIP download; developers can clone the [repository](https://github.com/javsanesq/jevlab).
-This repository is now named **jevlab**. The installed command is still `jev` and
-data still lives in `~/.jev/`; the command and data migration will follow in a
-separately reviewed phase.
+The repository, Python package, and installed command are **jevlab**. New profiles
+live in `~/.jevlab/`. Existing `~/.jev/` profiles and saved Keychain keys remain
+usable without moving or copying them; see [upgrading](#upgrading-from-jev).
 From the project folder:
 
 ```sh
@@ -80,6 +80,26 @@ make test
 into uv's separate tool environment. It preserves installed coach extras. Source
 edits apply immediately; reinstall after dependency changes. For an installer
 that does not require make, use `uv run python scripts/install.py`.
+
+### Upgrading from `jev`
+
+Run the installer from your existing checkout, even if its folder is still named
+`~/jev`. The new executable is `jevlab`; no `jev` compatibility command is installed.
+The installer preserves coach extras and removes the old `jev-workbench` tool
+only after the new tool installs successfully. Other programs named `jev` are
+not removed.
+
+If `~/.jev/` exists and `~/.jevlab/` does not, JevLab keeps using `~/.jev/` and
+shows a notice. Templates, history, settings, and progress stay in place; there
+is no copy or database move. If both folders exist, `~/.jevlab/` takes precedence;
+use `JEVLAB_HOME=~/.jev jevlab` to explicitly open the older profile. `jevlab doctor`
+shows the active folder. The old database keeps its `jev.db` filename.
+
+New settings use `JEVLAB_HOME` and `JEVLAB_SERVER_TOKEN`. The old `JEV_HOME` and
+`JEV_SERVER_TOKEN` names remain fallback inputs when the corresponding new name
+is unset. Provider key variables keep their official names. Existing Keychain
+entries under `jev-workbench` remain readable; newly saved keys use `jevlab`.
+No key needs to be entered again merely because the application was renamed.
 
 All actual decisions use the official TypeSafe SDK directly. The coach proposes
 and critiques only. Offline tests mock HTTP and block network connections;
@@ -105,7 +125,7 @@ them only in the project's development environment is insufficient):
 ```sh
 cd ~/jevlab
 make install COACH=both       # or COACH=anthropic / COACH=openai
-jev config --provider anthropic
+jevlab config --provider anthropic
 ```
 
 Later `make install` upgrades preserve the coach extras already installed.
@@ -119,17 +139,17 @@ Existing choices are preserved; the display name `Opus 5` becomes `claude-opus-5
 Provider/model selection is also in Settings, or use:
 
 ```sh
-jev config --set coach_provider=anthropic --json
-jev doctor --coach --offline
-jev doctor --coach
-jev coach
-jev coach design 'Check one claim against retrieved evidence' \
+jevlab config --set coach_provider=anthropic --json
+jevlab doctor --coach --offline
+jevlab doctor --coach
+jevlab coach
+jevlab coach design 'Check one claim against retrieved evidence' \
   --name grounding-proposal --output ./proposal.yaml --json
-jev coach critique my-grounding --json
-jev coach explain RUN_ID --json
+jevlab coach critique my-grounding --json
+jevlab coach explain RUN_ID --json
 ```
 
-`jev doctor --coach` reports both installed SDKs, key sources (never key values),
+`jevlab doctor --coach` reports both installed SDKs, key sources (never key values),
 and model IDs. It shows an estimated price and asks before making **one small live
 request per ready provider**, with no automatic retries. The request critiques a
 built-in synthetic template; no personal state or history is sent or saved.
@@ -141,20 +161,20 @@ For scripts, inspect readiness and estimates without spending, then explicitly
 authorize the live requests:
 
 ```sh
-jev doctor --coach --offline --json
-jev doctor --coach --yes --json
-jev config --set coach_provider=openai --json
+jevlab doctor --coach --offline --json
+jevlab doctor --coach --yes --json
+jevlab config --set coach_provider=openai --json
 ```
 
 The diagnostic JSON uses the existing versioned envelope; partial failures retain
 both provider reports in `data`. Exit 3 means setup or authorization is needed;
-exit 4 means a live check failed. The ordinary `jev doctor` stays offline.
+exit 4 means a live check failed. The ordinary `jevlab doctor` stays offline.
 The older `coach_model` setting remains an alias for the selected provider's model;
 switching providers no longer carries the other provider's model across.
 
 Review a proposed design with **Edit proposal** before saving. CLI `--output` writes
 a validated proposal to a new file; it does not install or execute it. After editing,
-import with `jev templates new NAME --from ./proposal.yaml`. The builder palette
+import with `jevlab templates new NAME --from ./proposal.yaml`. The builder palette
 also offers critique, and results have an **Explain with coach** button.
 
 Advice is grounded in a dated TypeSafe design/jaggedness guidance snapshot and
@@ -171,7 +191,7 @@ Output is bounded by
 `coach_max_output_tokens` (4096) and `coach_timeout_seconds` (60). Invalid/truncated
 proposals are rejected. Regular coach panels are not retained after exit; lesson
 feedback is saved with the attempt. Disable via
-`jev config --set coach_provider=disabled --json`.
+`jevlab config --set coach_provider=disabled --json`.
 
 ## CLI and pipes
 
@@ -182,21 +202,22 @@ JSON mode does not prompt for text or open the TUI; macOS may still require
 permission to access Keychain. Use environment mode for unattended execution.
 
 ```sh
-jev --version
-jev templates --json
-jev templates new my-triage --from ~/.jev/templates/support-triage.yaml --json
-jev templates edit my-triage
-jev templates validate ~/.jev/templates/my-triage.yaml --json
+jevlab --version
+jevlab templates --json
+jevlab_profile="$(jevlab --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["data"]["data_directory"])')"
+jevlab templates new my-triage --from "$jevlab_profile/templates/support-triage.yaml" --json
+jevlab templates edit my-triage
+jevlab templates validate "$jevlab_profile/templates/my-triage.yaml" --json
 
 printf '%s' '{"ticket":{"message":"I was charged twice. Please refund one charge."}}' \
-  | jev run support-triage --state - --json
+  | jevlab run support-triage --state - --json
 
-jev run support-triage --state ./ticket.json --json
-jev run support-triage --text '{"ticket":{"message":"The export button is broken."}}' --json
-jev history --template support-triage --status succeeded --json
-jev history --search refund --json
-jev history show RUN_ID --json
-jev history rerun RUN_ID --json
+jevlab run support-triage --state ./ticket.json --json
+jevlab run support-triage --text '{"ticket":{"message":"The export button is broken."}}' --json
+jevlab history --template support-triage --status succeeded --json
+jevlab history --search refund --json
+jevlab history show RUN_ID --json
+jevlab history rerun RUN_ID --json
 ```
 
 `--state -` defaults to JSON output even without `--json`. The input format comes
@@ -218,13 +239,13 @@ silently replaced with a successful judgment. Retryable failures include a
 suggested fix and a `retryable` flag.
 Provider failures retain their message, HTTP status, request ID, and a
 credential-redacted response body. F2 opens those details in the TUI;
-`jev --verbose history show RUN_ID` shows them for a saved failure in the CLI.
+`jevlab --verbose history show RUN_ID` shows them for a saved failure in the CLI.
 Older failures may lack a body because earlier versions discarded it.
 
 ## Templates and keys
 
 Templates are human-readable YAML with a versioned envelope around the official
-SDK question types. See the complete [starter template](src/jev/resources/support-triage.yaml)
+SDK question types. See the complete [starter template](src/jevlab/resources/support-triage.yaml)
 and [schema and architecture](docs/PLAN.md).
 
 ```yaml
@@ -279,16 +300,17 @@ A terminal of at least 100 columns is comfortable; the home screen also supports
 
 ## Storage, costs, and privacy
 
-Application data lives in `~/.jev/`:
+New application profiles live in `~/.jevlab/`:
 
 ```text
 config.toml          nonsecret settings
 templates/*.yaml     current reusable designs
-jev.db               runs, template revisions, lesson progress/attempts, migrations
+jevlab.db            runs, template revisions, lesson progress/attempts, migrations
 ```
 
-`JEV_HOME` overrides this directory for isolated profiles/tests. Source and uv's
-managed Python environments live separately. Files are created with private
+`JEVLAB_HOME` overrides this directory for isolated profiles/tests. Upgraded
+installations can retain `~/.jev/` and `jev.db` as described [above](#upgrading-from-jev).
+Source and uv's managed Python environments live separately. Files are created with private
 permissions; inputs and responses are ordinary local SQLite data, not encrypted
 by the application. The app creates no persistent payload logs.
 
@@ -304,7 +326,7 @@ Requests use the SDK's two retries by default, a 10-second timeout per HTTP
 operation, and a 45-second overall deadline including credential lookup. Keychain
 lookup is limited to five seconds (or the shorter overall deadline); a lookup
 timeout reports that no API request was sent. Configure request limits with
-`jev config --set max_retries=2 --set timeout_seconds=10 --set deadline_seconds=45`.
+`jevlab config --set max_retries=2 --set timeout_seconds=10 --set deadline_seconds=45`.
 Comparisons perform one bounded shared key lookup before the two per-call
 deadlines. Doctor's preliminary credential inventory is also bounded; its online
 models check then uses the configured request deadline separately.
@@ -323,10 +345,10 @@ at startup and after runs, at most once per minute in a long-lived process. It a
 compacts SQLite/WAL files. To inspect or apply cleanup yourself:
 
 ```sh
-jev clean --dry-run --json
-jev clean --json
-jev doctor --json
-jev config --set retention_days=90 --set retention_bytes=100000000 --json
+jevlab clean --dry-run --json
+jevlab clean --json
+jevlab doctor --json
+jevlab config --set retention_days=90 --set retention_bytes=100000000 --json
 ```
 
 The TUI's **Cleanup** screen previews eligible records before applying the current
@@ -339,7 +361,7 @@ The budget covers SQLite plus WAL, not the entire source or profile directory.
 
 ## Evaluate, tune, batch, and compare
 
-Open `jev eval`, `jev batch`, or `jev compare` directly, or choose them from the
+Open `jevlab eval`, `jevlab batch`, or `jevlab compare` directly, or choose them from the
 home screen / Ctrl+P palette. Evals and batches share row checkpoints, cost
 previews, cancellation, and explicit resume controls. Every returned answer comes
 from the official Jev SDK; calculating metrics and moving sliders is local.
@@ -348,11 +370,11 @@ Try the three-case synthetic fixture shipped with the source:
 
 ```sh
 cd ~/jevlab
-jev datasets import examples/support-eval.jsonl --template support-triage --json
-jev eval plan support-triage examples/support-eval.jsonl --json
-jev eval run support-triage examples/support-eval.jsonl --concurrency 4 --rate 2 --json
-jev eval --json
-jev eval show JOB_ID --json
+jevlab datasets import examples/support-eval.jsonl --template support-triage --json
+jevlab eval plan support-triage examples/support-eval.jsonl --json
+jevlab eval run support-triage examples/support-eval.jsonl --concurrency 4 --rate 2 --json
+jevlab eval --json
+jevlab eval show JOB_ID --json
 ```
 
 The `run` command makes three billable calls. The example tests plumbing and
@@ -360,9 +382,9 @@ illustrates the format; it is not a performance benchmark. Use representative,
 independently labeled data for your own decisions. To use a library design:
 
 ```sh
-jev library fork support-routing my-routing
-jev library export-data support-routing ~/Downloads/routing-exercise.jsonl --json
-jev eval run my-routing ~/Downloads/routing-exercise.jsonl --json
+jevlab library fork support-routing my-routing
+jevlab library export-data support-routing ~/Downloads/routing-exercise.jsonl --json
+jevlab eval run my-routing ~/Downloads/routing-exercise.jsonl --json
 ```
 
 Export refuses to overwrite an existing file. It strips teaching notes from the
@@ -423,9 +445,9 @@ when no case is automated. Saving writes only adjusted gates into the YAML;
 changed question/model designs must be evaluated again.
 
 ```sh
-jev eval tune JOB_ID route --threshold 0.90 --json
-jev eval tune JOB_ID refund_requested --no-below 0.10 --yes-above 0.90 --json
-jev eval tune JOB_ID route --threshold 0.90 --save --json
+jevlab eval tune JOB_ID route --threshold 0.90 --json
+jevlab eval tune JOB_ID refund_requested --no-below 0.10 --yes-above 0.90 --json
+jevlab eval tune JOB_ID route --threshold 0.90 --save --json
 ```
 
 Thresholds fitted on an eval describe that dataset. Check a separate holdout
@@ -436,10 +458,10 @@ returned versions so mixed-model jobs are visible.
 ### Run and resume a batch
 
 ```sh
-jev batch support-triage --input examples/support-eval.jsonl --output ~/Downloads/jev-results.jsonl --concurrency 4 --rate 2 --json
-jev batch --json
-jev batch --resume JOB_ID --json
-jev batch --resume JOB_ID --retry-failed --json
+jevlab batch support-triage --input examples/support-eval.jsonl --output ~/Downloads/jevlab-results.jsonl --concurrency 4 --rate 2 --json
+jevlab batch --json
+jevlab batch --resume JOB_ID --json
+jevlab batch --resume JOB_ID --retry-failed --json
 ```
 
 Use a new output path. Every attempted row is checkpointed in SQLite; the JSONL
@@ -466,8 +488,8 @@ retry charges, and are **not spending caps**. Interactive batch and eval each
 ask before starting, including small jobs. The TUI offers a **Don't ask again**
 checkbox; the interactive CLI asks whether to remember an accepted choice.
 The preferences are separate and can be restored in Settings or with
-`jev config --set confirm_batch_cost=true` and
-`jev config --set confirm_eval_cost=true`. `--yes` skips a prompt for one command
+`jevlab config --set confirm_batch_cost=true` and
+`jevlab config --set confirm_eval_cost=true`. `--yes` skips a prompt for one command
 without changing preferences. JSON/noninteractive jobs still require explicit
 `--yes` above `confirm_cost_usd` (default $1.00), or for an unknown model price;
 interactive preferences do not waive this scripting safeguard. Failed jobs return a saved
@@ -476,9 +498,10 @@ report with `ok: false` and exit code 4; inspecting that report later succeeds.
 ### Compare designs or model versions
 
 ```sh
-jev templates new support-variant --from ~/.jev/templates/support-triage.yaml --json
-jev templates edit support-variant
-jev compare support-triage support-variant --text '{"ticket":{"message":"Please refund the duplicate charge."}}' --json
+jevlab_profile="$(jevlab --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["data"]["data_directory"])')"
+jevlab templates new support-variant --from "$jevlab_profile/templates/support-triage.yaml" --json
+jevlab templates edit support-variant
+jevlab compare support-triage support-variant --text '{"ticket":{"message":"Please refund the duplicate charge."}}' --json
 ```
 
 The TUI shows both results side by side with probability and value differences.
@@ -493,15 +516,15 @@ comparison does not establish which design is better across your workload.
 Choose **Export** in the TUI to preview a standalone module, or use:
 
 ```sh
-jev export support-triage --lang python --output ~/Downloads/decision.py
-jev export support-triage --lang langchain --output ~/Downloads/decision_chain.py --json
-jev export support-triage --lang pydantic-ai --output ~/Downloads/decision_tool.py --json
+jevlab export support-triage --lang python --output ~/Downloads/decision.py
+jevlab export support-triage --lang langchain --output ~/Downloads/decision_chain.py --json
+jevlab export support-triage --lang pydantic-ai --output ~/Downloads/decision_tool.py --json
 ```
 
 Use new output paths; existing files are never overwritten. Exports preserve the
 saved model, questions, and thresholds, and contain typed sync/async result handling.
 They require the official SDK, use `TYPESAFE_API_KEY` from the receiving process,
-and do not depend on `jev` or its local profile. For example, in your own project:
+and do not depend on `jevlab` or its local profile. For example, in your own project:
 
 ```sh
 uv add 'typesafe-sdk==0.7.0'
@@ -526,14 +549,14 @@ template's examples and notes, so review those before publishing them.
 
 ## Local HTTP API
 
-`jev serve` runs in the foreground on **127.0.0.1**, using saved templates and the
+`jevlab serve` runs in the foreground on **127.0.0.1**, using saved templates and the
 same credentials, history, routing, and direct official SDK as the workbench.
 Set a separate local access token in your shell; it is not your TypeSafe key:
 
 ```sh
-export JEV_SERVER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
-jev serve --check --json
-jev serve --port 8766
+export JEVLAB_SERVER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+jevlab serve --check --json
+jevlab serve --port 8766
 ```
 
 Press Ctrl+C to stop. `--check` validates configuration without opening a listener
@@ -561,7 +584,7 @@ request = Request(
         {"state": {"ticket": {"message": "Please refund the duplicate charge."}}}
     ).encode(),
     headers={
-        "Authorization": "Bearer " + os.environ["JEV_SERVER_TOKEN"],
+        "Authorization": "Bearer " + os.environ["JEVLAB_SERVER_TOKEN"],
         "Content-Type": "application/json",
     },
 )

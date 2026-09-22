@@ -6,15 +6,15 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from jev.cli.app import app
-from jev.core.config import save_settings
-from jev.core.models import Settings
+from jevlab.cli.app import app
+from jevlab.core.config import save_settings
+from jevlab.core.models import Settings
 
 runner = CliRunner()
 
 
 def test_json_crud_and_config(tmp_path: Path) -> None:
-    root = Path(os.environ["JEV_HOME"])
+    root = Path(os.environ["JEVLAB_HOME"])
     save_settings(root, Settings(credential_mode="environment"))
     for args in [
         ["--json"],
@@ -35,7 +35,7 @@ def test_json_crud_and_config(tmp_path: Path) -> None:
 
 
 def test_missing_key_is_json_and_recorded() -> None:
-    save_settings(Path(os.environ["JEV_HOME"]), Settings(credential_mode="environment"))
+    save_settings(Path(os.environ["JEVLAB_HOME"]), Settings(credential_mode="environment"))
     result = runner.invoke(
         app,
         ["run", "support-triage", "--state", "-", "--json"],
@@ -55,7 +55,7 @@ def test_real_entrypoint_error_exit_and_json(tmp_path: Path) -> None:
         ["run", "support-triage", "--text", "bad json", "--json"],
     ]:
         result = subprocess.run(
-            [sys.executable, "-m", "jev", *args], capture_output=True, text=True, cwd=tmp_path
+            [sys.executable, "-m", "jevlab", *args], capture_output=True, text=True, cwd=tmp_path
         )
         assert result.returncode == 2, (result.stdout, result.stderr)
         assert json.loads(result.stdout)["ok"] is False

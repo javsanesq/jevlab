@@ -10,13 +10,13 @@ from textual.widgets import DataTable, Input, Select, Static, TextArea
 from textual.worker import Worker
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluator
-from jev.core.jobs import BatchService
-from jev.core.models import ConfidenceGate, Run, Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Confirm
-from jev.tui.evaluation import (
+from jevlab.core.client import Evaluator
+from jevlab.core.jobs import BatchService
+from jevlab.core.models import ConfidenceGate, Run, Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm
+from jevlab.tui.evaluation import (
     CompareResultScreen,
     CompareScreen,
     EvalScreen,

@@ -12,7 +12,7 @@ import pytest
 @pytest.fixture
 def installer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     path = Path(__file__).resolve().parent.parent / "scripts" / "install.py"
-    spec = importlib.util.spec_from_file_location("jev_test_installer", path)
+    spec = importlib.util.spec_from_file_location("jevlab_test_installer", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -21,8 +21,8 @@ def installer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     return module
 
 
-def receipt(tool_dir: Path, content: str) -> None:
-    destination = tool_dir / "jev-workbench" / "uv-receipt.toml"
+def receipt(tool_dir: Path, content: str, *, package: str = "jev-workbench") -> None:
+    destination = tool_dir / package / "uv-receipt.toml"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(content)
 
@@ -34,6 +34,8 @@ def fake_uv(
     *,
     dir_status: int = 0,
     install_status: int = 0,
+    uninstall_status: int = 0,
+    uninstall_unavailable: bool = False,
 ) -> list[list[str]]:
     calls: list[list[str]] = []
 
@@ -49,8 +51,12 @@ def fake_uv(
         if command == ["uv", "tool", "dir"]:
             assert capture_output and text
             return subprocess.CompletedProcess(command, dir_status, f"{tool_dir}\n", "")
-        assert command[:3] == ["uv", "tool", "install"]
         assert not capture_output and not text
+        if command == ["uv", "tool", "uninstall", "jev-workbench"]:
+            if uninstall_unavailable:
+                raise OSError("private uninstall detail")
+            return subprocess.CompletedProcess(command, uninstall_status, "", "")
+        assert command[:3] == ["uv", "tool", "install"]
         return subprocess.CompletedProcess(command, install_status, "", "")
 
     monkeypatch.setattr(installer.subprocess, "run", run)
@@ -99,7 +105,87 @@ def test_upgrade_preserves_recorded_extras_and_unions_requested(
             "--editable",
             str(project) + (f"[{','.join(expected)}]" if expected else ""),
         ],
+        ["uv", "tool", "uninstall", "jev-workbench"],
     ]
+
+
+@pytest.mark.parametrize("legacy_installed", [True, False])
+def test_new_receipt_extras_survive_and_combine_with_legacy(
+    installer: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    legacy_installed: bool,
+) -> None:
+    receipt(
+        tmp_path,
+        '[tool]\nrequirements = [{name="JevLab", extras=["openai"]}]',
+        package="jevlab",
+    )
+    if legacy_installed:
+        receipt(tmp_path, '[tool]\nrequirements = [{name="jev-workbench", extras=["anthropic"]}]')
+    calls = fake_uv(installer, monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "argv", ["install.py"])
+    with pytest.raises(SystemExit) as exited:
+        installer.main()
+    assert exited.value.code == 0
+    assert calls[1][:4] == ["uv", "tool", "install", "--editable"]
+    assert calls[1][-1].endswith("[anthropic,openai]" if legacy_installed else "[openai]")
+    if legacy_installed:
+        assert calls[2:] == [["uv", "tool", "uninstall", "jev-workbench"]]
+    else:
+        assert len(calls) == 2
+
+
+def test_failed_new_install_leaves_legacy_tool_installed(
+    installer: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    receipt(tmp_path, '[tool]\nrequirements = [{name="jev-workbench", extras=["openai"]}]')
+    calls = fake_uv(installer, monkeypatch, tmp_path, install_status=2)
+    monkeypatch.setattr(sys, "argv", ["install.py"])
+    with pytest.raises(SystemExit) as exited:
+        installer.main()
+    assert exited.value.code == 2
+    assert len(calls) == 2
+    assert calls[-1][:3] == ["uv", "tool", "install"]
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_legacy_uninstall_failure_explains_that_new_tool_is_installed(
+    installer: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    unavailable: bool,
+) -> None:
+    receipt(tmp_path, '[tool]\nrequirements = [{name="jev-workbench"}]')
+    calls = fake_uv(
+        installer, monkeypatch, tmp_path, uninstall_status=2, uninstall_unavailable=unavailable
+    )
+    monkeypatch.setattr(sys, "argv", ["install.py"])
+    with pytest.raises(SystemExit) as exited:
+        installer.main()
+    assert exited.value.code == (1 if unavailable else 2)
+    assert calls[-2][:3] == ["uv", "tool", "install"]
+    assert calls[-1] == ["uv", "tool", "uninstall", "jev-workbench"]
+    error = capsys.readouterr().err
+    assert "jevlab is installed" in error
+    assert "Run uv tool uninstall jev-workbench" in error
+    assert "private uninstall detail" not in error
+
+
+def test_unrelated_jev_binary_is_not_removed(
+    installer: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    other_binary = tmp_path / "bin" / "jev"
+    other_binary.parent.mkdir()
+    other_binary.write_text("unrelated command")
+    calls = fake_uv(installer, monkeypatch, tmp_path / "tools")
+    monkeypatch.setattr(sys, "argv", ["install.py"])
+    with pytest.raises(SystemExit) as exited:
+        installer.main()
+    assert exited.value.code == 0
+    assert other_binary.read_text() == "unrelated command"
+    assert not any("uninstall" in call for call in calls)
 
 
 def test_fresh_install_ignores_other_tools_and_environment_keys(
@@ -153,10 +239,11 @@ def test_malformed_receipt_stops_before_install_with_actionable_error(
     assert "private-url" not in error
 
 
+@pytest.mark.parametrize("package", ["jev-workbench", "jevlab"])
 def test_missing_receipt_for_existing_tool_does_not_silently_drop_extras(
-    installer: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    installer: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, package: str
 ) -> None:
-    (tmp_path / "jev-workbench").mkdir()
+    (tmp_path / package).mkdir()
     calls = fake_uv(installer, monkeypatch, tmp_path)
     monkeypatch.setattr(sys, "argv", ["install.py"])
     with pytest.raises(SystemExit) as exited:
@@ -187,13 +274,13 @@ def test_existing_path_collision_warns_and_preserves_uv_ownership_check(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     calls = fake_uv(installer, monkeypatch, tmp_path, install_status=2)
-    other_command = tmp_path / "other" / "bin" / "jev"
+    other_command = tmp_path / "other" / "bin" / "jevlab"
     monkeypatch.setattr(installer.shutil, "which", lambda _name: str(other_command))
     monkeypatch.setattr(sys, "argv", ["install.py"])
     with pytest.raises(SystemExit) as exited:
         installer.main()
     assert exited.value.code == 2
-    assert f"jev already exists at {other_command}" in capsys.readouterr().err
+    assert f"jevlab already exists at {other_command}" in capsys.readouterr().err
     assert "--force" not in calls[-1]
 
 
@@ -209,13 +296,13 @@ def test_project_environment_does_not_hide_later_path_collision(
     project_bin = project / ".venv" / "bin"
     other_bin = tmp_path / "bin"
     other_bin.mkdir()
-    (other_bin / "jev").touch()
-    monkeypatch.setattr(installer.shutil, "which", lambda _name: str(project_bin / "jev"))
+    (other_bin / "jevlab").touch()
+    monkeypatch.setattr(installer.shutil, "which", lambda _name: str(project_bin / "jevlab"))
     monkeypatch.setattr(installer.os, "get_exec_path", lambda: [str(project_bin), str(other_bin)])
     monkeypatch.setattr(sys, "argv", ["install.py"])
     with pytest.raises(SystemExit):
         installer.main()
-    assert f"Warning: existing jev command(s): {other_bin / 'jev'}" in capsys.readouterr().err
+    assert f"Warning: existing jevlab command(s): {other_bin / 'jevlab'}" in capsys.readouterr().err
 
 
 def test_missing_uv_has_no_raw_traceback(

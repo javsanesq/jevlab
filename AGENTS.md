@@ -1,6 +1,6 @@
-# Jev repository instructions
+# JevLab repository instructions
 
-Jev is a Python terminal workbench for TypeSafe decisions. Keep `core` independent
+JevLab is a Python terminal workbench for TypeSafe Jev decisions. Keep `core` independent
 of the CLI, TUI, and coach. The coach only proposes or critiques; actual decisions
 must come from the official TypeSafe SDK. Preserve machine-readable JSON,
 stdout/stderr separation, and documented exit codes.
@@ -10,11 +10,11 @@ stdout/stderr separation, and documented exit codes.
 - Follow the user's current scope and checkpoint boundaries. A request to finish
   one task does not authorize silently starting a separate feature task.
 - Before declaring work complete, run `make lint` and `make test`, install the
-  tool, and test the installed `jev` command from outside this checkout. Verify
+  tool, and test the installed `jevlab` command from outside this checkout. Verify
   meaningful changed behavior. State which checks use mocks and which make real
   API calls; never imply a recorded demo is a live result.
 - Record important decisions in `docs/DECISIONS.md`. For each completed future
-  version, keep `pyproject.toml`, `src/jev/__init__.py`, and `uv.lock` consistent,
+  version, keep `pyproject.toml`, `src/jevlab/__init__.py`, and `uv.lock` consistent,
   and add a dated changelog entry describing the behavior, verification, and
   material limitations. Use `Status: complete` only after the work and required
   checks are actually complete. Keep unfinished entries clearly marked.

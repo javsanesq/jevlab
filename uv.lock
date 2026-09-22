@@ -485,8 +485,8 @@ wheels = [
 ]
 
 [[package]]
-name = "jev-workbench"
-version = "0.7.1"
+name = "jevlab"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx2" },

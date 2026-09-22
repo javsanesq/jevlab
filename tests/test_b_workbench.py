@@ -6,15 +6,15 @@ import pytest
 from conftest import MockEvaluator
 from textual.widgets import Button, Input, Select, Static, TextArea
 
-from jev.core.config import load_settings
-from jev.core.demo import load_demo
-from jev.core.models import Settings
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Confirm, ErrorDetails
-from jev.tui.editor import QuestionEditor, TemplateEditor
-from jev.tui.guidance import Explain, Glossary
-from jev.tui.screens import Home, Playground, ResultScreen, SettingsScreen
+from jevlab.core.config import load_settings
+from jevlab.core.demo import load_demo
+from jevlab.core.models import Settings
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm, ErrorDetails
+from jevlab.tui.editor import QuestionEditor, TemplateEditor
+from jevlab.tui.guidance import Explain, Glossary
+from jevlab.tui.screens import Home, Playground, ResultScreen, SettingsScreen
 
 
 def simple(wb: Workbench) -> None:
@@ -242,7 +242,7 @@ async def test_errors_use_plain_shape_and_reopen_safely(wb: Workbench) -> None:
 
 
 async def test_plain_explanations_leave_answer_and_routing_unchanged(wb: Workbench) -> None:
-    from jev.core.guidance import explain_answer
+    from jevlab.core.guidance import explain_answer
 
     run = await wb.run(
         wb.templates.load("support-triage"), "A test message.", evaluator=MockEvaluator()
@@ -257,8 +257,8 @@ async def test_plain_explanations_leave_answer_and_routing_unchanged(wb: Workben
 async def test_stale_history_row_is_an_actionable_error(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jev.core.errors import JevError
-    from jev.tui.screens import History
+    from jevlab.core.errors import JevError
+    from jevlab.tui.screens import History
 
     await wb.run(wb.templates.load("support-triage"), "A test.", evaluator=MockEvaluator())
     app = JevApp(wb)

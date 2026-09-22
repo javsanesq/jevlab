@@ -20,8 +20,21 @@ employer reference was found. Key-pattern matches were synthetic test fixtures;
 no compromised real key was identified. Example absolute paths were generalized.
 The packaged artifacts are separately checked before publication.
 
-The command remains `jev`, the distribution remains `jev-workbench`, and local
-state remains `~/.jev/` until the separately reviewed rename/migration phase.
+Since 0.8.0, the command and distribution are `jevlab`, with no installed `jev`
+shim. New profiles use `~/.jevlab/`; existing `~/.jev/` profiles remain in place
+and are used with a notice when no new profile exists. Existing Keychain entries
+remain readable. See the [upgrade notes](../README.md#upgrading-from-jev).
+
+The 0.8.0 rename checkpoint passed Ruff, Pyright and 714 offline tests, with one
+live test skipped. Its audit checked all objects in the clean repository,
+including unreachable objects and commit/tag metadata, plus current source.
+No real credential or new personal-data exposure was identified. The wheel has
+84 files and the source archive has 160: application code, reviewed tests/docs,
+build metadata and explicitly synthetic examples. Neither includes private
+profiles, databases, environment files, keys or editable-install path files.
+The sole installed command is `jevlab`. Editable and Python 3.12 wheel commands
+were tested outside the checkout, including the key-free TUI demo. Existing
+profile contents and Keychain access were checked without live provider calls.
 
 ## Earlier repository history
 
@@ -45,7 +58,7 @@ outside the extracted source passed installed version, guide JSON, recorded demo
 and offline doctor checks. This verified the downloadable installation route
 without replacing the owner's installation or reading private history.
 
-[GitHub CI](https://github.com/javsanesq/jev/actions/workflows/ci.yml) uses Python
+[Current GitHub CI](https://github.com/javsanesq/jevlab/actions/workflows/ci.yml) uses Python
 3.12 on macOS, the committed dependency lock, pinned actions, and offline tests.
 It checks lint, types, tests, package resources, and an installed wheel outside
 the source tree. No provider secrets are configured for these checks.
@@ -70,7 +83,8 @@ Full rules are in [RELEASING.md](RELEASING.md); PyPI publication remains owner-r
 ## Boundaries
 
 The repository contains reviewed source, synthetic examples, and documentation.
-It excludes the owner's keys, private `~/.jev` profile, history, local datasets,
+It excludes the owner's keys, private `~/.jevlab` and legacy `~/.jev` profiles,
+history, local datasets,
 and environment files. Routine release checks make no paid API requests. Task C's
 one separately authorized live TypeSafe verification is identified in its report.
 

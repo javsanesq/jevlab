@@ -8,10 +8,10 @@ import pytest
 from conftest import MockEvaluator
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluation
-from jev.core.models import Template
-from jev.core.service import Workbench
-from jev.server.app import MAX_BODY_BYTES, create_app, server_token
+from jevlab.core.client import Evaluation
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench
+from jevlab.server.app import MAX_BODY_BYTES, create_app, server_token
 
 TOKEN = "offline-local-api-token-32-characters"
 URL = "http://127.0.0.1:8766"
@@ -208,13 +208,13 @@ async def test_server_bounded_concurrency_and_cancellation(wb: Workbench) -> Non
 
 
 def test_local_token_never_reuses_provider_credential(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jev.core.errors import JevError
+    from jevlab.core.errors import JevError
 
-    monkeypatch.delenv("JEV_SERVER_TOKEN", raising=False)
+    monkeypatch.delenv("JEVLAB_SERVER_TOKEN", raising=False)
     monkeypatch.setenv("TYPESAFE_API_KEY", "provider-key-not-for-local-server")
-    with pytest.raises(JevError, match="JEV_SERVER_TOKEN"):
+    with pytest.raises(JevError, match="JEVLAB_SERVER_TOKEN"):
         server_token()
-    monkeypatch.setenv("JEV_SERVER_TOKEN", TOKEN)
+    monkeypatch.setenv("JEVLAB_SERVER_TOKEN", TOKEN)
     assert server_token() == TOKEN
 
 
@@ -266,7 +266,7 @@ async def test_streamed_body_is_bounded_without_content_length(wb: Workbench) ->
 async def test_slow_body_times_out_without_consuming_inference_slot(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("jev.server.app.BODY_READ_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr("jevlab.server.app.BODY_READ_TIMEOUT_SECONDS", 0.01)
 
     async def chunks() -> AsyncIterator[bytes]:
         yield b'{"state":"'
@@ -312,11 +312,11 @@ async def test_unexpected_local_errors_are_safe_json_without_tracebacks(
 def test_server_token_rejects_ascii_control_characters(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch, control: str
 ) -> None:
-    from jev.core.errors import JevError
+    from jevlab.core.errors import JevError
 
     token = TOKEN + control
     if control != "\x00":  # Operating systems themselves reject NUL in environment values.
-        monkeypatch.setenv("JEV_SERVER_TOKEN", token)
+        monkeypatch.setenv("JEVLAB_SERVER_TOKEN", token)
         with pytest.raises(JevError):
             server_token()
     with pytest.raises(ValueError):

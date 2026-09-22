@@ -1,7 +1,9 @@
 # Decisions
 
-Status: **All four phases approved by the user and implemented** on 2026-09-20.
-The phase sections below record decisions at the time; Phase 4 supersedes deferred items.
+The original four build phases were approved and implemented on 2026-09-20.
+These are dated decisions; follow-up phases appear below and supersede earlier
+choices where stated. Current commands use `jevlab`; older names remain here as
+historical evidence, not current setup instructions.
 
 | ID | Decision | Reason |
 | --- | --- | --- |
@@ -188,3 +190,14 @@ in their separately reviewed phases.
 | D77 | Share the coach's cancellable native credential bridge in core; include lookup in the ordinary run deadline and cap it at five seconds. Bound comparison lookup and synchronous diagnostic inventory too. Apply configured deadlines and retries to online TypeSafe diagnostics. | A native Keychain prompt must not block event-loop shutdown or be reported as a provider timeout. Distinguish a lookup failure with no dispatched request from uncertain remote completion. Comparison lookup and doctor's preliminary inventory have separate bounded waits before inference/model-list deadlines. |
 | D78 | Reject grossly contradictory Score values in both workbench and standalone exports, while allowing a conservative rounding budget based on the existing probability-sum tolerance. | The documented Score is the probability-weighted level mean. The local tolerance is a defensive compatibility choice, not a provider precision guarantee; never synthesize a replacement decision. |
 | D79 | Bound editable JSON/YAML nesting to 64 containers locally; preserve drafts and show field errors. Retain safe local error classes and coach/server diagnostic metadata. | Invalid user input must not exit the editor. The nesting bound protects local parsers, not a claimed TypeSafe limit. Known causes and request identifiers must survive interface boundaries without revealing credentials or arbitrary exception text. |
+
+## JevLab follow-up, Phase 4 — rename and privacy (2026-09-22)
+
+| ID | Decision | Reason |
+| --- | --- | --- |
+| D80 | Rename the distribution, Python namespace and command to `jevlab` in 0.8.0, without a `jev` shim. Preserve TypeSafe Jev model identifiers and standalone export interfaces. | Free the old command name while avoiding changes to provider requests, decision semantics or exported client code. Supersedes D01's naming. |
+| D81 | New profiles use `~/.jevlab` and `jevlab.db`; keep reading an existing `~/.jev` when the new folder is absent, with CLI/TUI notices. Prefer `JEVLAB_HOME`, then legacy `JEV_HOME`. Keep an existing `jev.db` in place; refuse ambiguous dual database files. | Moving SQLite files while another process holds the database/WAL can split or lose history. Retain the complete old profile without merging, copying or rewriting its records. When both profile directories exist, explicitly identify the selected one and how to select the old one. |
+| D82 | New Keychain entries use service `jevlab`; look up legacy `jev-workbench` entries when the new entry is absent, before environment fallback. Never copy keys to disk or delete old entries. | Existing users keep working keys without re-entry. New saves override legacy values; environment-only mode remains available. Provider environment variable names remain unchanged. |
+| D83 | Preserve coach extras from both uv receipts; install the new tool before uninstalling the validated legacy `jev-workbench` tool. Never delete unrelated PATH binaries. | A failed new installation must leave the old installation intact. Receipt errors stop the installer before mutation. |
+| D84 | Preserve version-1 JSON envelopes, exit codes and HTTP routes. Add `jevlab_binaries` while retaining `jev_binaries` as a compatibility field; accept legacy `JEV_SERVER_TOKEN` only when `JEVLAB_SERVER_TOKEN` is unset. | The rename must not silently break data consumers or existing local-server credentials. An explicitly empty new token fails validation rather than restoring an older credential. |
+| D85 | Audit every object in the clean Git repository, including history and metadata, plus current source and both built distributions, before publishing the checkpoint. Label historical reports and retain the old public repository unchanged. | The owner approved fresh clean history in Phase 2. This phase must not reintroduce private author metadata, profiles, credentials or personal paths. No history rewriting, scheduled publishing, PyPI publication or platform expansion is part of this checkpoint. |

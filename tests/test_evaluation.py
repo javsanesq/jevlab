@@ -8,12 +8,12 @@ from typing import Any
 import pytest
 from typesafe_sdk import SystemOneResponse
 
-from jev.core import datasets
-from jev.core.datasets import DatasetRow, inspect_dataset, iter_dataset
-from jev.core.errors import JevError
-from jev.core.evaluation import EvalReport, evaluate_runs, threshold_curve, threshold_stats
-from jev.core.models import ConfidenceGate, NoulGate, Run, Template
-from jev.core.thresholds import route
+from jevlab.core import datasets
+from jevlab.core.datasets import DatasetRow, inspect_dataset, iter_dataset
+from jevlab.core.errors import JevError
+from jevlab.core.evaluation import EvalReport, evaluate_runs, threshold_curve, threshold_stats
+from jevlab.core.models import ConfidenceGate, NoulGate, Run, Template
+from jevlab.core.thresholds import route
 
 LABELS: dict[str, str | bool | int] = {
     "route": "billing",

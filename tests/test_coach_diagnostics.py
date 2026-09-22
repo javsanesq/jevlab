@@ -8,7 +8,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from jev.coach.diagnostics import (
+from jevlab.coach.diagnostics import (
     PROBE_OUTPUT_TOKENS,
     PROVIDERS,
     CoachProvider,
@@ -16,9 +16,9 @@ from jev.coach.diagnostics import (
     probe_estimates,
     safe_value,
 )
-from jev.coach.service import DIAGNOSTIC_INSTRUCTIONS, SYSTEM
-from jev.core.credentials import ENV_KEYS, SERVICE, Credentials
-from jev.core.models import Settings
+from jevlab.coach.service import DIAGNOSTIC_INSTRUCTIONS, SYSTEM
+from jevlab.core.credentials import ENV_KEYS, LEGACY_SERVICE, SERVICE, Credentials
+from jevlab.core.models import Settings
 
 ADVICE = {
     "summary": "The topic question has a clear boundary.",
@@ -35,8 +35,8 @@ class MemoryStore:
 
     def get_password(self, service: str, username: str) -> str | None:
         self.reads.append((service, username))
-        assert service == SERVICE
-        return self.values.get(username)
+        assert service in (SERVICE, LEGACY_SERVICE)
+        return self.values.get(username) if service == SERVICE else None
 
     def set_password(self, service: str, username: str, password: str) -> None:
         self.values[username] = password
@@ -172,7 +172,7 @@ async def test_missing_key_is_actionable_and_never_calls_provider(provider: Coac
 async def test_missing_sdk_still_reports_key_and_model(
     provider: CoachProvider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("jev.coach.diagnostics.sdk_version", lambda _: None)
+    monkeypatch.setattr("jevlab.coach.diagnostics.sdk_version", lambda _: None)
     monkeypatch.setenv(ENV_KEYS[provider], "synthetic-key")
     settings = Settings(credential_mode="environment")
     reports = await check_coaches(settings, live=True)

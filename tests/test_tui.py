@@ -4,12 +4,12 @@ from textual.command import CommandPalette
 from textual.widgets import DataTable, Input, Select, TextArea
 from typesafe_sdk import JSONContent
 
-from jev.core.models import Run, Template
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Confirm, Help
-from jev.tui.editor import QuestionEditor, TemplateEditor
-from jev.tui.screens import History, Home, Playground, ResultScreen, SettingsScreen
+from jevlab.core.models import Run, Template
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm, Help
+from jevlab.tui.editor import QuestionEditor, TemplateEditor
+from jevlab.tui.screens import History, Home, Playground, ResultScreen, SettingsScreen
 
 
 async def test_builder_question_and_unsaved_changes(wb: Workbench) -> None:

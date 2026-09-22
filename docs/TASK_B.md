@@ -1,5 +1,9 @@
 # Task B: approachable interface checkpoint
 
+> Historical checkpoint: commands and measured results below describe that release.
+> Since 0.8.0, the app is JevLab and the command is `jevlab`. Use the
+> [current guide](GUIDE.md) for installation, commands, and existing-data compatibility.
+
 Completed: 2026-09-21. Release: 0.5.0. Task C has not started.
 
 > Historical checkpoint: features, commands, and verification below describe this

@@ -8,14 +8,14 @@ from test_remaining_lessons import LessonEvaluator
 from textual.widgets import Button, DataTable, Static
 from typer.testing import CliRunner
 
-from jev.cli.app import app as cli
-from jev.core.content import lesson, pattern, starter
-from jev.core.learning import Learning
-from jev.core.models import ConfidenceGate, NoulGate
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
-from jev.tui.learning import GradeScreen, LessonScreen
-from jev.tui.screens import ResultScreen
+from jevlab.cli.app import app as cli
+from jevlab.core.content import lesson, pattern, starter
+from jevlab.core.learning import Learning
+from jevlab.core.models import ConfidenceGate, NoulGate
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
+from jevlab.tui.learning import GradeScreen, LessonScreen
+from jevlab.tui.screens import ResultScreen
 
 
 def rendered(widget: Static) -> str:
@@ -105,7 +105,7 @@ async def test_pruned_attempt_preserves_progress_and_disables_inspection(
         assert "pruned" in rendered(app.screen.query_one("#lesson-status", Static))
         assert app.screen.query_one("#last-attempt", Button).disabled
         assert app.screen.report is None
-    monkeypatch.setattr("jev.cli.learning.workbench", lambda: wb)
+    monkeypatch.setattr("jevlab.cli.learning.workbench", lambda: wb)
     result = CliRunner().invoke(cli, ["learn", "inspect", report.id, "--json"])
     assert result.exit_code == 2
     error = json.loads(result.stdout)["error"]

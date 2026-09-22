@@ -5,6 +5,10 @@ published package metadata, and official Python SDK source. The initial research
 preceded implementation; the Phase 2 appendix below records subsequent integration
 and authenticated checks.
 
+The model is still named **Jev**. Since 0.8.0, this separate workbench is named
+**JevLab** and launches with `jevlab`. Historical installation checks below retain
+the command and source-folder names used when they were performed.
+
 ## API and SDK
 
 The [quickstart](https://docs.typesafe.ai/introduction/quickstart) and

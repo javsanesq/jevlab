@@ -4,10 +4,10 @@ from typing import Any, Literal
 import httpx2
 import pytest
 
-from jev.coach.service import Coach, Completion, ProviderAdvisor
-from jev.core.errors import JevError
-from jev.core.models import Settings, Template
-from jev.core.service import Workbench
+from jevlab.coach.service import Coach, Completion, ProviderAdvisor
+from jevlab.core.errors import JevError
+from jevlab.core.models import Settings, Template
+from jevlab.core.service import Workbench
 
 ADVICE = {
     "summary": "Clarify the evidence boundary.",

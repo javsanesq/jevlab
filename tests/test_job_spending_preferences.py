@@ -8,18 +8,18 @@ from test_b_cli import evaluation, runner, spending, terminal, use_evaluator
 from test_phase3_tui import dataset, finish_job, mock_runs
 from textual.widgets import Button, Checkbox, Input
 
-from jev.cli.app import app
-from jev.cli.evaluation import authorize
-from jev.core.config import load_settings
-from jev.core.errors import JevError
-from jev.core.jobs import BatchService
-from jev.core.models import Settings
-from jev.core.service import Workbench
-from jev.core.spending import SpendScope
-from jev.tui.app import JevApp
-from jev.tui.evaluation import EvalScreen, JobScreen
-from jev.tui.screens import SettingsScreen
-from jev.tui.spending import JobCostConfirm
+from jevlab.cli.app import app
+from jevlab.cli.evaluation import authorize
+from jevlab.core.config import load_settings
+from jevlab.core.errors import JevError
+from jevlab.core.jobs import BatchService
+from jevlab.core.models import Settings
+from jevlab.core.service import Workbench
+from jevlab.core.spending import SpendScope
+from jevlab.tui.app import JevApp
+from jevlab.tui.evaluation import EvalScreen, JobScreen
+from jevlab.tui.screens import SettingsScreen
+from jevlab.tui.spending import JobCostConfirm
 
 
 def test_existing_settings_keep_job_prompts_enabled() -> None:

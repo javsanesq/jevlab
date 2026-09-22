@@ -12,13 +12,13 @@ import httpx2
 import pytest
 from test_coach import ADVICE, FakeAdvisor, coach_settings, provider_response
 
-from jev.coach.errors import coach_error, sanitize_text
-from jev.coach.service import Coach, Completion, ProviderAdvisor, resolve_credentials
-from jev.core.credentials import SERVICE, Credentials, Provider
-from jev.core.errors import JevError
-from jev.core.models import Settings, Template
-from jev.core.service import Workbench
-from jev.presentation import human_error
+from jevlab.coach.errors import coach_error, sanitize_text
+from jevlab.coach.service import Coach, Completion, ProviderAdvisor, resolve_credentials
+from jevlab.core.credentials import LEGACY_SERVICE, SERVICE, Credentials, Provider
+from jevlab.core.errors import JevError
+from jevlab.core.models import Settings, Template
+from jevlab.core.service import Workbench
+from jevlab.presentation import human_error
 
 
 @pytest.mark.parametrize("provider", ["openai", "anthropic"])
@@ -184,7 +184,7 @@ async def test_coach_reads_saved_key_or_environment_fallback(
 ) -> None:
     key = f"offline-{source}-key"
     store = MemoryKeyStore({provider: key} if source == "keychain" else {})
-    monkeypatch.setattr("jev.core.credentials.native_store", lambda: store)
+    monkeypatch.setattr("jevlab.core.credentials.native_store", lambda: store)
     monkeypatch.setenv(f"{provider.upper()}_API_KEY", key if source == "environment" else "unused")
     captured: list[str] = []
 
@@ -192,11 +192,14 @@ async def test_coach_reads_saved_key_or_environment_fallback(
         captured.append(key)
         return FakeAdvisor()
 
-    monkeypatch.setattr("jev.coach.service.ProviderAdvisor", advisor)
+    monkeypatch.setattr("jevlab.coach.service.ProviderAdvisor", advisor)
     settings = Settings(coach_provider=provider, coach_model="configured-test-model")
     result = await Coach(settings).critique(design)
     assert result.advice.summary == ADVICE["summary"]
-    assert captured == [key] and store.reads == [(SERVICE, provider)]
+    assert captured == [key]
+    assert store.reads == [(SERVICE, provider)] + (
+        [(LEGACY_SERVICE, provider)] if source == "environment" else []
+    )
     assert key not in result.model_dump_json()
 
 
@@ -281,7 +284,7 @@ async def test_cancellation_is_not_converted_to_provider_failure(design: Templat
 def test_unexpected_internal_error_is_safe_and_nonretryable() -> None:
     error = coach_error(RuntimeError("Arbitrary secret, request or traceback must stay private"))
     assert error.code == "coach_internal" and error.exit_code == 4 and not error.retryable
-    assert "secret" not in str(error) and "jev doctor --coach" in error.fix
+    assert "secret" not in str(error) and "jevlab doctor --coach" in error.fix
 
 
 def test_message_redaction_handles_control_characters_unicode_and_bound() -> None:

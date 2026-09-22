@@ -28,9 +28,9 @@ jobs:
 
       - name: Isolate application data and tool installation
         run: |
-          printf 'UV_TOOL_DIR=%s/jev-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'UV_TOOL_BIN_DIR=%s/jev-bin\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'JEV_HOME=%s/jev-profile\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'UV_TOOL_DIR=%s/jevlab-tools\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'UV_TOOL_BIN_DIR=%s/jevlab-bin\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'JEVLAB_HOME=%s/jevlab-profile\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -64,10 +64,24 @@ jobs:
           wheels = list(Path("dist").glob("*.whl"))
           sources = list(Path("dist").glob("*.tar.gz"))
           assert len(wheels) == len(sources) == 1
+
+          def check_paths(names):
+              for name in names:
+                  parts = Path(name).parts
+                  assert not any(part in {".jev", ".jevlab", ".venv", "__pycache__"} for part in parts)
+                  assert not any(part.startswith(".env") for part in parts)
+                  assert not any(part.endswith((".db", ".db-wal", ".db-shm", ".sqlite", ".sqlite3", ".key", ".pem", ".log")) for part in parts)
+
           with ZipFile(wheels[0]) as wheel:
-              assert wheel.read("jev/resources/GUIDE.md") == expected
+              assert wheel.read("jevlab/resources/GUIDE.md") == expected
+              names = wheel.namelist()
+              check_paths(names)
+              assert not any(name.startswith("jev/") for name in names)
+              entry = next(name for name in names if name.endswith(".dist-info/entry_points.txt"))
+              assert wheel.read(entry).decode().strip() == "[console_scripts]\njevlab = jevlab.cli.app:main"
               assert not any(name.endswith(".pth") for name in wheel.namelist())
           with open_tar(sources[0]) as source:
+              check_paths(source.getnames())
               guides = [item for item in source.getmembers() if item.name.endswith("/docs/GUIDE.md")]
               assert len(guides) == 1
               content = source.extractfile(guides[0])
@@ -78,12 +92,12 @@ jobs:
       - name: Install the wheel into an isolated uv tool environment
         run: |
           uv export --locked --all-extras --no-dev --no-emit-project --no-hashes \
-            --format requirements.txt --output-file "$RUNNER_TEMP/jev-constraints.txt" > /dev/null
+            --format requirements.txt --output-file "$RUNNER_TEMP/jevlab-constraints.txt" > /dev/null
           export PATH="$UV_TOOL_BIN_DIR:$PATH"
           wheels=(dist/*.whl)
-          uv tool install --python 3.12 --constraints "$RUNNER_TEMP/jev-constraints.txt" "${wheels[0]}"
-          mkdir -p "$JEV_HOME"
-          printf 'credential_mode = "environment"\n' > "$JEV_HOME/config.toml"
+          uv tool install --python 3.12 --constraints "$RUNNER_TEMP/jevlab-constraints.txt" "${wheels[0]}"
+          mkdir -p "$JEVLAB_HOME"
+          printf 'credential_mode = "environment"\n' > "$JEVLAB_HOME/config.toml"
 
       - name: Test installed commands from a fresh shell outside the checkout
         working-directory: ${{ runner.temp }}
@@ -101,8 +115,9 @@ jobs:
 
           source = Path(os.environ["GITHUB_WORKSPACE"])
           assert Path.cwd() != source
-          executable = shutil.which("jev")
-          assert executable == str(Path(os.environ["UV_TOOL_BIN_DIR"]) / "jev")
+          executable = shutil.which("jevlab")
+          assert executable == str(Path(os.environ["UV_TOOL_BIN_DIR"]) / "jevlab")
+          assert not (Path(os.environ["UV_TOOL_BIN_DIR"]) / "jev").exists()
           version = tomllib.loads((source / "pyproject.toml").read_text())["project"]["version"]
 
           def run(*args: str) -> str:
@@ -118,7 +133,7 @@ jobs:
               assert result["schema_version"] == 1 and result["ok"] is True
               return result["data"]
 
-          assert run("--version").strip() == f"jev {version}"
+          assert run("--version").strip() == f"jevlab {version}"
           expected = (source / "docs/GUIDE.md").read_text()
           assert payload("guide")["content"] == expected
           assert run("guide").rstrip() == expected.rstrip()
@@ -126,5 +141,5 @@ jobs:
           assert len(payload("tour")["steps"]) == 3
           assert "confidence" in {name.casefold() for name in payload("glossary", "confidence")}
           payload("doctor")
-          print(f"Installed jev {version}: guide, demo, tour, glossary, and offline doctor passed.")
+          print(f"Installed jevlab {version}: guide, demo, tour, glossary, and offline doctor passed.")
           PY

@@ -7,13 +7,13 @@ from time import monotonic
 
 import pytest
 
-from jev.core import doctor, service
-from jev.core.credentials import Credentials, Provider
-from jev.core.errors import JevError
-from jev.core.jobs import BatchService
-from jev.core.models import Template
-from jev.core.service import Workbench
-from jev.presentation import human_error
+from jevlab.core import doctor, service
+from jevlab.core.credentials import Credentials, Provider
+from jevlab.core.errors import JevError
+from jevlab.core.jobs import BatchService
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench
+from jevlab.presentation import human_error
 
 
 @pytest.mark.parametrize("operation", ["run", "doctor"])

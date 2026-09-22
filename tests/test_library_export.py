@@ -7,12 +7,12 @@ import pytest
 from textual.widgets import Input
 from typer.testing import CliRunner
 
-from jev.cli.app import app
-from jev.core.content import export_dataset, patterns
-from jev.core.datasets import inspect_dataset
-from jev.core.errors import JevError
-from jev.core.service import Workbench
-from jev.tui.app import JevApp
+from jevlab.cli.app import app
+from jevlab.core.content import export_dataset, patterns
+from jevlab.core.datasets import inspect_dataset
+from jevlab.core.errors import JevError
+from jevlab.core.service import Workbench
+from jevlab.tui.app import JevApp
 
 
 def test_every_library_export_is_a_private_validated_dataset(tmp_path: Path) -> None:

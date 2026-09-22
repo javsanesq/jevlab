@@ -8,13 +8,13 @@ import pytest
 from textual.widgets import Button, Input, TextArea
 from typer.testing import CliRunner
 
-from jev.cli.app import app as cli
-from jev.cli.common import local_error
-from jev.core.service import Workbench
-from jev.core.templates import MAX_NESTING, load_json, load_yaml
-from jev.tui.app import JevApp
-from jev.tui.editor import QuestionEditor, TemplateEditor
-from jev.tui.fields import Field
+from jevlab.cli.app import app as cli
+from jevlab.cli.common import local_error
+from jevlab.core.service import Workbench
+from jevlab.core.templates import MAX_NESTING, load_json, load_yaml
+from jevlab.tui.app import JevApp
+from jevlab.tui.editor import QuestionEditor, TemplateEditor
+from jevlab.tui.fields import Field
 
 DEEP_INPUT = "[" * 1100 + "0" + "]" * 1100
 
@@ -95,7 +95,7 @@ def test_bad_state_file_has_specific_cli_reason_and_no_run(
     machine: bool,
     kind: str,
 ) -> None:
-    monkeypatch.setenv("JEV_HOME", str(wb.root))
+    monkeypatch.setenv("JEVLAB_HOME", str(wb.root))
     path = tmp_path / "synthetic-state.json"
     expected = "does not exist"
     if kind == "directory":

@@ -11,10 +11,10 @@ import pytest
 from conftest import RESPONSE, MockEvaluator
 from typesafe_sdk import TypeSafeAPIConnectionError, TypeSafeAPIError, TypeSafeAPITimeoutError
 
-from jev.core.client import SDKClient, translate_error
-from jev.core.errors import JevError
-from jev.core.models import Settings, Template
-from jev.core.service import Workbench
+from jevlab.core.client import SDKClient, translate_error
+from jevlab.core.errors import JevError
+from jevlab.core.models import Settings, Template
+from jevlab.core.service import Workbench
 
 
 @pytest.mark.parametrize(
@@ -28,7 +28,7 @@ from jev.core.service import Workbench
             "bad_request",
             "field",
         ),
-        (401, "This API key has expired.", "invalid_api_key", "authentication", "jev config"),
+        (401, "This API key has expired.", "invalid_api_key", "authentication", "jevlab config"),
         (403, "Project cannot use this model.", "permission_denied", "permission", "project"),
         (429, "Account has insufficient_quota.", "insufficient_quota", "quota", "billing"),
         (404, "Model not found: retired-test", "model_not_found", "model_not_found", "Model"),
@@ -173,7 +173,7 @@ def test_network_errors_keep_distinct_safe_explanation(
 
 
 def test_legacy_error_envelope_does_not_gain_null_optional_keys() -> None:
-    error = JevError("missing_key", "No key found.", "Use jev config.", 3)
+    error = JevError("missing_key", "No key found.", "Use jevlab config.", 3)
     assert set(error.as_dict()) == {"code", "message", "fix", "retryable", "request_id", "run_id"}
     assert JevError.from_dict(error.as_dict()).as_dict() == error.as_dict()
 

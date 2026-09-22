@@ -4,13 +4,13 @@ from pathlib import Path
 
 from textual.widgets import Input, Select, TextArea
 
-from jev.core.service import Workbench
-from jev.core.templates import dump_template
-from jev.tui.app import JevApp
-from jev.tui.dialogs import Prompt, YamlEditor, state_file
-from jev.tui.evaluation import CompareScreen
-from jev.tui.fields import Field
-from jev.tui.guidance import Explain, Glossary
+from jevlab.core.service import Workbench
+from jevlab.core.templates import dump_template
+from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Prompt, YamlEditor, state_file
+from jevlab.tui.evaluation import CompareScreen
+from jevlab.tui.fields import Field
+from jevlab.tui.guidance import Explain, Glossary
 
 
 async def test_path_dialog_explains_and_blocks_missing_file(wb: Workbench, tmp_path: Path) -> None:

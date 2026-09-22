@@ -7,12 +7,12 @@ import pytest
 from conftest import MockEvaluator
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluation, Evaluator
-from jev.core.compare import compare
-from jev.core.models import Run, Settings, Template
-from jev.core.retention import cleanup
-from jev.core.service import Workbench
-from jev.core.templates import fork_template
+from jevlab.core.client import Evaluation, Evaluator
+from jevlab.core.compare import compare
+from jevlab.core.models import Run, Settings, Template
+from jevlab.core.retention import cleanup
+from jevlab.core.service import Workbench
+from jevlab.core.templates import fork_template
 
 
 async def test_cleanup_cannot_separate_a_completed_left_from_a_pending_right(
@@ -125,7 +125,7 @@ async def test_credentials_resolve_once_before_pair_timers_start(
         assert len(wb.storage.history()) == 2
         return evaluator
 
-    monkeypatch.setattr("jev.core.compare.Credentials.resolve", resolve)
-    monkeypatch.setattr("jev.core.compare.SDKClient", sdk_client)
+    monkeypatch.setattr("jevlab.core.compare.Credentials.resolve", resolve)
+    monkeypatch.setattr("jevlab.core.compare.SDKClient", sdk_client)
     report = await compare(wb, design, fork_template(design, "variant"), "ticket")
     assert lookups == 1 and report.status == "completed" and len(evaluator.requests) == 2

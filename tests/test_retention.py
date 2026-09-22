@@ -8,11 +8,11 @@ from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from jev.core.models import Run, Template
-from jev.core.retention import cleanup, database_bytes
-from jev.core.service import Workbench
-from jev.core.storage import Storage, maintenance_lock
-from jev.core.templates import revision_hash
+from jevlab.core.models import Run, Template
+from jevlab.core.retention import cleanup, database_bytes
+from jevlab.core.service import Workbench
+from jevlab.core.storage import Storage, maintenance_lock
+from jevlab.core.templates import revision_hash
 
 AT = datetime(2026, 9, 20, tzinfo=UTC)
 

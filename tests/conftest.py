@@ -10,9 +10,9 @@ import httpx2
 import pytest
 from typesafe_sdk import JSONContent
 
-from jev.core.client import Evaluation, SDKClient
-from jev.core.models import Settings, Template
-from jev.core.service import Workbench
+from jevlab.core.client import Evaluation, SDKClient
+from jevlab.core.models import Settings, Template
+from jevlab.core.service import Workbench
 
 RESPONSE: dict[str, Any] = {
     "model": "jev-1.13.0",
@@ -58,7 +58,9 @@ def isolate(
         return
     for name in ("TYPESAFE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("JEV_HOME", str(tmp_path / "cli-home"))
+    for name in ("JEV_HOME", "JEV_SERVER_TOKEN", "JEVLAB_SERVER_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JEVLAB_HOME", str(tmp_path / "cli-home"))
 
     def blocked(*args: object, **kwargs: object) -> None:
         pytest.fail("Offline tests must never make a real network connection.")

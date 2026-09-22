@@ -7,9 +7,9 @@ import httpx2
 import pytest
 from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy
 
-from jev.core import doctor
-from jev.core.errors import JevError
-from jev.core.service import Workbench
+from jevlab.core import doctor
+from jevlab.core.errors import JevError
+from jevlab.core.service import Workbench
 
 
 async def test_online_doctor_preserves_reason_without_echoed_key(

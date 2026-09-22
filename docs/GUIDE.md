@@ -1,15 +1,18 @@
-# The beginner's guide to jev
+# The beginner's guide to JevLab
 
-For macOS · English · jev 0.7.1
+For macOS · English · jevlab 0.8.0
 
-The public repository is named **jevlab**. This release still launches with
-`jev` and keeps personal files in `~/.jev/`; the command and data-folder rename
-will come in a later reviewed release.
+The application is named **JevLab** and launches with `jevlab`. New installations
+keep personal files in `~/.jevlab/`. An upgrade keeps using an existing `~/.jev/`
+folder when no new folder exists, and shows a notice. Your saved work and keys
+remain available; nothing is moved or copied.
 
-Already have a working installation? Start at [First run](#5-first-run).
+Already have a working `jevlab` command? Start at [First run](#5-first-run).
+If you used the earlier `jev` command, run the installer in section 4 from your
+existing source folder. Keep that folder in place; its name need not change.
 For the shorter route, see the [Quickstart](QUICKSTART.md).
-After installation, `jev guide` opens this guide in a **pager**, a reader for
-long terminal text. `jev guide --web` opens it as a page in your browser.
+After installation, `jevlab guide` opens this guide in a **pager**, a reader for
+long terminal text. `jevlab guide --web` opens it as a page in your browser.
 
 ## 1. What this is
 
@@ -19,7 +22,7 @@ You also want to know whether the letter asks for a refund, and how serious the
 problem sounds. Jev can make those small judgments from the words in the letter.
 
 **Jev** is the online decision model made by TypeSafe. A model is a computer
-system trained to recognize patterns. **`jev`**, written in lower case in commands,
+system trained to recognize patterns. **JevLab**, written `jevlab` in commands,
 is this separate workbench: a place to prepare questions, try them, and examine
 the answers. You can save a set of questions and use it again for another letter.
 The workbench shows alternative answers and how strongly Jev favors them.
@@ -72,7 +75,7 @@ button wording may change. You can postpone them until section 5.
 5. Choose the control for creating an API key.
 
    **You should see:** a creation form or a newly generated key. If asked for a
-   name, `jev on my Mac` is a useful description. TypeSafe controls this form.
+   name, `jevlab on my Mac` is a useful description. TypeSafe controls this form.
 
 6. Complete the key-creation form, if one appears.
 
@@ -134,7 +137,7 @@ failed; ordinary progress text is not itself an error.
 
 ## 4. Installation
 
-If `jev --version` already works, you can skip installation and go to section 5.
+If `jevlab --version` already works, you can skip installation and go to section 5.
 This section installs from a source folder called `jevlab` in your home folder.
 **Source** means the files that make up the program. Keep this folder afterward:
 an **editable installation** uses it when you launch the command.
@@ -143,7 +146,9 @@ an **editable installation** uses it when you launch the command.
 
 If you already have a working source folder, keep it and skip this subsection.
 For an older installation at `~/jev`, use `cd ~/jev` instead of the new folder
-command below. Do not replace an existing project folder with a downloaded copy.
+command below. Later example dataset paths and the local-server token command
+also use `~/jevlab`; use your actual source folder in those paths. Do not replace
+an existing project folder with a downloaded copy.
 
 1. Open [the jevlab repository](https://github.com/javsanesq/jevlab) in your browser.
 
@@ -188,7 +193,7 @@ command below. Do not replace an existing project folder with a downloaded copy.
 **uv** is a program that installs Python tools and their supporting packages.
 **Python** is the language this workbench uses. You do not need to learn it to
 use the screens. A **package** is a bundle of code; **dependencies** are packages
-that this tool needs. uv keeps them in a separate environment for `jev`.
+that this tool needs. uv keeps them in a separate environment for `jevlab`.
 
 1. Run this in Terminal:
 
@@ -238,13 +243,15 @@ that this tool needs. uv keeps them in a separate environment for `jev`.
    line like this:
 
    ```text
-   Installed 1 executable: jev
+   Installed 1 executable: jevlab
    ```
 
-   uv downloads a suitable Python version if needed. A warning that `jev`
+   uv downloads a suitable Python version if needed. A warning that `jevlab`
    already exists is a collision check, not necessarily a failure. An upgrade
    preserves installed coach packages. If another unrelated program owns that
    name, the installer may refuse; ask for help rather than deleting that program.
+   When upgrading, the installer removes the earlier workbench command only
+   after the new installation succeeds. From then on, type `jevlab`, not `jev`.
 
 6. Run:
 
@@ -263,17 +270,17 @@ that this tool needs. uv keeps them in a separate environment for `jev`.
 8. Run:
 
    ```sh
-   jev --version
+   jevlab --version
    ```
 
    **You should see:**
 
    ```text
-   jev 0.7.1
+   jevlab 0.8.0
    ```
 
    A later release may show a higher number. If the command is not found, see
-   troubleshooting. You can launch `jev` from any folder after installation.
+   troubleshooting. You can launch `jevlab` from any folder after installation.
 
 ## 5. First run
 
@@ -291,18 +298,18 @@ menu of actions. Escape closes a list or dialog before leaving its screen.
 1. Run:
 
    ```sh
-   jev
+   jevlab
    ```
 
-   **You should see:** **Welcome to jev** on a first launch. If you already
+   **You should see:** **Welcome to jevlab** on a first launch. If you already
    completed or skipped it, the home screen appears instead. The repeatable
-   version of the tour is available with `jev tour` after leaving the app.
+   version of the tour is available with `jevlab tour` after leaving the app.
 
    This is an abbreviated sketch, not an exact screenshot:
 
    ```text
    +------------------------------------------------------------+
-   | Welcome to jev                                             |
+   | Welcome to jevlab                                          |
    | Jev helps you sort information and make small judgments... |
    |                                                            |
    | [Continue]                                                 |
@@ -476,7 +483,7 @@ uses yes at 0.90 or above, no at 0.10 or below, and review between them.
 These are teaching defaults, not tested guarantees for your work.
 
 **Automate** means the answer passed that local rule. **Human review** means a
-person should check it before another program acts. `jev` reports this
+person should check it before another program acts. `jevlab` reports this
 recommendation. It does not contact anyone or carry out the proposed action.
 A template without review rules sends its answers to human review.
 
@@ -516,7 +523,7 @@ need the key from section 5. A real result is not guaranteed to match the demo.
 1. Run:
 
    ```sh
-   jev
+   jevlab
    ```
 
    **You should see:** the home screen. If the tour is still open, Escape skips it.
@@ -565,8 +572,9 @@ need the key from section 5. A real result is not guaranteed to match the demo.
 
 8. Press Ctrl+Q.
 
-   **You should see:** the terminal prompt. The result is saved locally under
-   `~/.jev/`, the workbench's data folder.
+   **You should see:** the terminal prompt. The result is saved locally in
+   the workbench's data folder: normally `~/.jevlab/`, or an existing `~/.jev/`
+   folder kept during an upgrade. `jevlab doctor` shows which folder is active.
 
 You have now tried a reusable decision design on a concrete case. The decision
 is saved; no support ticket was sent and no payment was refunded.
@@ -593,7 +601,7 @@ a longer explanation of the focused field without using the text you entered.
 1. Run:
 
    ```sh
-   jev templates new my-message-sorter
+   jevlab templates new my-message-sorter
    ```
 
    **You should see:** **TEMPLATE / save questions you can use again**, with
@@ -678,7 +686,7 @@ a longer explanation of the focused field without using the text you entered.
 17. Run:
 
     ```sh
-    jev
+    jevlab
     ```
 
     **You should see:** `my-message-sorter` in the list. It can be tried using
@@ -706,7 +714,7 @@ usage, cost estimates, and the number of runs with unknown cost.
 1. Run:
 
    ```sh
-   jev history
+   jevlab history
    ```
 
    **You should see:** past results. The worked example should be there if it
@@ -738,7 +746,7 @@ relying on a design. It makes a paid request for each case that needs running.
 1. Run:
 
    ```sh
-   jev eval
+   jevlab eval
    ```
 
    **You should see:** **TEST A DESIGN / compare with known answers**, with a design selector and
@@ -771,7 +779,7 @@ this section can wait until you have tested a design.
 1. Run:
 
    ```sh
-   jev eval
+   jevlab eval
    ```
 
    **You should see:** **TEST A DESIGN / compare with known answers**, with
@@ -821,7 +829,7 @@ number of requests. Large source datasets stay at their original paths.
 1. Run:
 
    ```sh
-   jev batch
+   jevlab batch
    ```
 
    **You should see:** **PROCESS A FILE / run the same design on many examples**.
@@ -835,7 +843,7 @@ case. **Don't ask again before batch runs** remembers your choice for future
 interactive batch runs only. It does not turn off evaluation prompts.
 
 In terminal commands, `--yes` skips that job's prompt once. For example,
-`jev eval run support-triage ~/jevlab/examples/support-eval.jsonl --yes` starts
+`jevlab eval run support-triage ~/jevlab/examples/support-eval.jsonl --yes` starts
 a paid evaluation immediately. It does not save a preference. Scripted JSON
 and piped commands keep their cost-budget checks; a saved interactive preference
 does not bypass them.
@@ -847,7 +855,7 @@ paid request, after leaving the full-screen app:
 1. Run:
 
    ```sh
-   jev config --set confirm_batch_cost=true
+   jevlab config --set confirm_batch_cost=true
    ```
 
    **You should see:** a settings-saved message. Future interactive batches ask
@@ -856,7 +864,7 @@ paid request, after leaving the full-screen app:
 2. Run:
 
    ```sh
-   jev config --set confirm_eval_cost=true
+   jevlab config --set confirm_eval_cost=true
    ```
 
    **You should see:** a settings-saved message. Future interactive evaluations
@@ -871,7 +879,7 @@ Jev calls, so it has a cost. The coach is optional and cannot assign the grade.
 1. Run:
 
    ```sh
-   jev learn
+   jevlab learn
    ```
 
    **You should see:** the lesson list and saved progress. The first lesson is
@@ -890,7 +898,7 @@ chatbot subscription does not establish that its separate API account is ready.
 1. Run:
 
    ```sh
-   jev doctor --coach --offline
+   jevlab doctor --coach --offline
    ```
 
    **You should see:** each provider's package, key source, model, and any missing
@@ -900,7 +908,7 @@ chatbot subscription does not establish that its separate API account is ready.
 2. Run:
 
    ```sh
-   jev coach
+   jevlab coach
    ```
 
    **You should see:** the advice screen. Opening it is free. Asking for advice
@@ -915,17 +923,17 @@ running that code can make paid calls. You can ignore this until you have a proj
 1. Run:
 
    ```sh
-   jev export support-triage --lang python --output ~/Desktop/jev-support.py
+   jevlab export support-triage --lang python --output ~/Desktop/jevlab-support.py
    ```
 
    **You should see:** a message starting `Exported support-triage to`, and a
-   `jev-support.py` file on your Desktop. The `.py` ending means Python code.
+   `jevlab-support.py` file on your Desktop. The `.py` ending means Python code.
    An existing file is not overwritten. If it already exists, keep it and choose
    a different filename when you need another export.
 
 ### Local server: let another program ask for decisions
 
-`jev serve` starts a **local server**, a program waiting for requests on this
+`jevlab serve` starts a **local server**, a program waiting for requests on this
 Mac. An **HTTP API** is a way for programs to send those requests. This feature
 is for developers and can be ignored at first. It is not a website for visitors.
 It needs a separate access **token**, a temporary secret for the local server;
@@ -934,7 +942,7 @@ that token must not be your TypeSafe key.
 1. Run this to generate the local token without printing it:
 
    ```sh
-   export JEV_SERVER_TOKEN="$(uv run --project ~/jevlab python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+   export JEVLAB_SERVER_TOKEN="$(uv run --project ~/jevlab python -c 'import secrets; print(secrets.token_urlsafe(32))')"
    ```
 
    **You should see:** another prompt, possibly after uv environment messages.
@@ -945,7 +953,7 @@ that token must not be your TypeSafe key.
 2. Run:
 
    ```sh
-   jev serve --check
+   jevlab serve --check
    ```
 
    **You should see:**
@@ -960,7 +968,7 @@ that token must not be your TypeSafe key.
 3. Run:
 
    ```sh
-   jev serve
+   jevlab serve
    ```
 
    **You should see:** a confirmation explaining that later requests can cost
@@ -980,7 +988,7 @@ that token must not be your TypeSafe key.
 
 The normal error shape is **What happened / Why / Next**. It avoids a
 **traceback**, the programmer's long record of a failure. F2 shows safe error
-details inside the app. A command beginning `jev --verbose` includes extra safe
+details inside the app. A command beginning `jevlab --verbose` includes extra safe
 error **metadata**, meaning descriptive information such as a code identifying
 the kind of problem. Provider failures also show the service's reason, its HTTP
 status (a numbered result code), and its request ID (a reference for support),
@@ -990,15 +998,17 @@ Older saved failures may not contain details that earlier versions discarded.
 
 | Symptom | What it means and how to fix it |
 | --- | --- |
-| `command not found: jev` | The shell cannot find the installed command. **1.** Run `uv tool update-shell`. You should see an update or already-configured message. **2.** Open a new Terminal window. You should see a new prompt. **3.** Run `jev --version`. You should see its version. If no installation exists, section 4 provides the numbered installation steps. |
+| `command not found: jevlab` | The shell cannot find the installed command. **1.** Run `uv tool update-shell`. You should see an update or already-configured message. **2.** Open a new Terminal window. You should see a new prompt. **3.** Run `jevlab --version`. You should see its version. If no installation exists, section 4 provides the numbered installation steps. |
+| `command not found: jev` after an upgrade | The workbench command has changed. **1.** Run `jevlab --version`. You should see `jevlab 0.8.0` or a later version. Use `jevlab` for the other commands in this guide. |
+| Old saved work seems missing | Two data folders may exist, or an environment variable may select a separate profile. A **profile** is the folder containing this app's saved work and settings. **1.** Run `jevlab doctor`. You should see the active folder beside **Local files**. **2.** If your earlier work is in `~/.jev/`, run `JEVLAB_HOME=~/.jev jevlab`. You should see the earlier templates and history; neither folder is merged or erased. |
 | `command not found: uv` | uv is absent or not on PATH. The installer steps in section 4 show how to add it and check its version. |
 | `cd: no such file or directory` | The source folder is not at `~/jevlab`. Section 4's source-folder steps show where to put it. A successful `cd ~/jevlab` then returns a prompt without an error. Older installations may still be at `~/jev`. |
-| A key is missing | **1.** Run `jev tour`. You should see the welcome screen. The numbered key-setup steps in section 5 lead to the hidden field. A coach key cannot replace a TypeSafe key. An error report must never contain a key. |
+| A key is missing | **1.** Run `jevlab tour`. You should see the welcome screen. The numbered key-setup steps in section 5 lead to the hidden field. A coach key cannot replace a TypeSafe key. An error report must never contain a key. |
 | Reading the API key timed out | The app could not finish reading Keychain before its time limit. No Jev request was sent. **1.** Unlock your login Keychain and allow the access prompt. You should be able to try the run again. |
 | A key is rejected | A stored key can be expired, incomplete, or for the wrong provider. Section 2's numbered steps explain how to obtain a TypeSafe key; section 5 explains saving it. A later live request checks whether the replacement works. Single runs start without a price prompt. |
 | `Unknown model: jev` | `jev` is the model family, not an API model identifier. **1.** Change the template's Model field to `jev-latest`. You should see the validation message clear. The same rule applies to the default model in Settings. |
 | Billing, quota, or account-access error | The provider declined this account or model. **1.** Open that provider's account dashboard. You should see its balance, access, or billing controls and any required account steps. Repeating the same request will not repair billing. |
-| Coach does not work | **1.** Run `jev doctor --coach --offline`. You should see the package, key, model, or setting that needs attention. **2.** Run `jev doctor --coach` when the offline checks are ready. You should see a price confirmation before small live checks. These are paid checks; their results distinguish success and failure for each provider. |
+| Coach does not work | **1.** Run `jevlab doctor --coach --offline`. You should see the package, key, model, or setting that needs attention. **2.** Run `jevlab doctor --coach` when the offline checks are ready. You should see a price confirmation before small live checks. These are paid checks; their results distinguish success and failure for each provider. |
 | No internet or a timeout | The online service could not be reached in time. **1.** Open a familiar website in your browser. You should see its page if your connection works. If it also fails, your connection needs attention. The free demo and saved results remain available. A timed-out request might already have been processed and billed. |
 | Rate limit | The provider received too many requests in a period. The error's **Next** line gives the wait or request-rate change appropriate to that failure. Retrying before that wait ends can fail again. |
 | Permission denied | macOS or folder permissions blocked access. **1.** Read the error's **Next** line. You should see whether the problem concerns Keychain or a file. Section 5 covers Keychain access. A file must be in a folder your account can write to, such as Desktop. `sudo` runs commands with administrator powers; it is not a general fix for this error. |
@@ -1006,14 +1016,14 @@ Older saved failures may not contain details that earlier versions discarded.
 | I am stuck in the guide or server | **1.** Press `q` in the guide's usual pager, or Ctrl+C in the running server. You should see the terminal prompt. Those are different programs from the full-screen app. |
 | I cannot see a button | **1.** Press Tab to move to later controls. You should see focus move and the screen scroll as needed. **2.** Choose **More options** if the control is advanced. You should see additional controls. |
 | Ctrl+A did not select my text | It moves to the start of a line. **1.** Press Ctrl+Shift+A in a one-line field, or F7 in a multi-line box. You should see the whole field selected. Some Macs require Fn+F7. |
-| `my-message-sorter` already exists | The earlier exercise already saved it. **1.** Run `jev templates edit my-message-sorter`. You should see that saved template; nothing is overwritten without editing and saving it. |
+| `my-message-sorter` already exists | The earlier exercise already saved it. **1.** Run `jevlab templates edit my-message-sorter`. You should see that saved template; nothing is overwritten without editing and saving it. |
 | Export says the file exists | The tool protects the existing file. **1.** Run the export command with a different output filename. You should see a new exported-file message. The earlier file remains intact. |
 | Dataset changed while preparing a job | The input file changed after its price and contents were checked. No request from that preparation was sent. **1.** Restore the original file before resuming. You should see the job accept its original cases; changed cases need a new job and price check. |
 | JSON or YAML is too deeply nested | The text has too many lists or objects inside one another. Your draft stays in the editor. **1.** Remove unnecessary nesting from the named field. You should see its validation message clear once the structure is readable. |
 | Score contradicts its probability-weighted mean | The provider returned contradictory numbers, so the app did not accept an automated answer. **1.** Press F2 on the error. You should see safe technical details and a request ID, when available, to report to TypeSafe. |
 | Result differs from the picture | Pictures use recorded teaching values. A live answer can differ. **1.** Open the saved result from history using section 9's steps. You should see its actual answer bars and saved details rather than the recording. |
 | A price is unknown | The app cannot verify that model's price or usage. It is not free. In a batch, eval, or coach price prompt, **1.** Choose **Cancel this request** to avoid starting it. You should return with no new request sent. A single run starts immediately; an unknown cost afterward cannot undo that request. |
-| Browser guide does not open | **1.** Run `jev guide`. You should see the terminal version. A reported local HTML path is another way to reach the page; HTML is the file format browsers display. |
+| Browser guide does not open | **1.** Run `jevlab guide`. You should see the terminal version. A reported local HTML path is another way to reach the page; HTML is the file format browsers display. |
 
 Some fixes in this table are multi-step sequences. Each numbered action within
 its cell has its own visible check. A problem that persists belongs in a support
@@ -1050,7 +1060,7 @@ keyboard; Fn changes the behavior of the function-key row on some Macs.
 | Coverage | The share of tested cases passing the automatic-use rules. |
 | CSV | A table stored as text, often exported from a spreadsheet. |
 | Dashboard | A provider's account-management webpage. |
-| Database / SQLite | A local organized data file; SQLite is the format used for Jev history. |
+| Database / SQLite | A local organized data file; SQLite is the format used for JevLab history. |
 | Dataset / label | A collection of cases; a label is the known answer supplied for testing. |
 | Dependency / package / SDK | Supporting code installed for a program. An SDK is a provider's set of tools for calling its service. |
 | Dialog | A smaller screen asking for information or a choice. |
@@ -1074,13 +1084,14 @@ keyboard; Fn changes the behavior of the function-key row on some Macs.
 | MB | Megabytes, a unit of storage size. The default history limit is about 100 MB. |
 | Metadata | Descriptive information, such as a run's time, model, or error code. |
 | Noul | A yes-or-no question returning the probability of yes, without separate confidence. |
-| Package / Python | A bundle of code; the programming language used to build `jev`. |
+| Package / Python | A bundle of code; the programming language used to build `jevlab`. |
 | Pager | A terminal reader for long text. Space advances, `b` goes back, and `q` closes the usual reader. |
 | Path / PATH | A file or folder location; uppercase PATH is the shell's list of places to find commands. |
 | Piped input / script / `--json` | Advanced ways to connect programs: pass one program's text to another, run saved commands, or request machine-readable output. |
 | Playground | The screen for trying one template on one case. |
 | Port | A numbered connection point used by a server. |
 | Probability | The model's estimated chance for an answer, between 0.00 and 1.00. |
+| Profile | The folder containing JevLab's saved templates, results, and settings. Separate profiles keep separate work. |
 | Prompt | Here, the shell's ready line. In AI discussions the same word can mean instructions given to a model. |
 | Provider | The company running the online model service. |
 | Rate limit | A limit on requests in a period of time. |
@@ -1099,7 +1110,7 @@ keyboard; Fn changes the behavior of the function-key row on some Macs.
 | Terminal / TUI | The Mac app for commands; the full-screen interface inside that app. |
 | Threshold | A cutoff for deciding whether a result needs human review. |
 | Token | Usually a small piece of model text. A server access token instead means a private access code. |
-| Traceback / verbose | A programmer's failure trace; a setting requesting extra diagnostic detail. jev's verbose mode uses safe metadata. |
+| Traceback / verbose | A programmer's failure trace; a setting requesting extra diagnostic detail. jevlab's verbose mode uses safe metadata. |
 | Triage | Deciding where an incoming case should go first. |
 | uv | The tool that installs Python and manages this program's supporting packages. |
 | YAML | A readable labeled text format used for saved templates. |
@@ -1116,7 +1127,7 @@ numbers. These are provider references, not guarantees about your own design.
 1. Run:
 
    ```sh
-   jev doctor
+   jevlab doctor
    ```
 
    **You should see:** a local installation report. In Simple mode it begins
@@ -1135,7 +1146,7 @@ numbers. These are provider references, not guarantees about your own design.
 2. Run:
 
    ```sh
-   jev doctor --json
+   jevlab doctor --json
    ```
 
    **You should see:** a longer report starting with a structure like this:
@@ -1151,12 +1162,12 @@ numbers. These are provider references, not guarantees about your own design.
 3. Describe the failed action in [a project issue](https://github.com/javsanesq/jevlab/issues).
 
    **You should see:** GitHub's issue form, possibly after signing in. Include
-   `jev --version`, the safe error message, and whether the free demo works.
+   `jevlab --version`, the safe error message, and whether the free demo works.
    GitHub issues are public. A billing or key-access problem belongs with the
    relevant provider, rather than being solved by posting the secret publicly.
 
-The guide itself is available locally through `jev guide`. It opens a **pager**,
+The guide itself is available locally through `jevlab guide`. It opens a **pager**,
 a reader for long terminal text. Space advances, `b` goes back, and `q` returns
-to the prompt with the default reader. `jev guide --web` opens a local HTML
+to the prompt with the default reader. `jevlab guide --web` opens a local HTML
 copy in your browser. Neither command makes a model request. Verification notes
 and the steps requiring a personal account are recorded in [TASK_C.md](TASK_C.md).

@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from jev.cli import diagnostics
-from jev.cli.app import app
-from jev.core.models import Settings
+from jevlab.cli import diagnostics
+from jevlab.cli.app import app
+from jevlab.core.models import Settings
 
 runner = CliRunner()
 
