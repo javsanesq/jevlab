@@ -73,7 +73,8 @@ class SDKClient:
                 "client_configuration",
                 f"TypeSafe client setup failed: {reason} No API request was sent.",
                 "Review the setting named above in jevlab config. For an API key, re-copy "
-                "the complete key without whitespace into Keychain or TYPESAFE_API_KEY.",
+                "the complete key without whitespace into protected storage or "
+                "TYPESAFE_API_KEY.",
                 3,
                 details={"exception_type": type(error).__name__, "request_sent": False},
             ) from None

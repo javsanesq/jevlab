@@ -66,7 +66,7 @@ def load_settings(root: Path) -> Settings:
             "invalid_config",
             f"config.toml: {validation_message(error)}",
             "Edit the named setting in config.toml; use jev-latest for the Jev model. "
-            "Credentials belong in Keychain or environment variables.",
+            "Credentials belong in protected storage or environment variables.",
         ) from None
     except OSError:
         raise JevError(

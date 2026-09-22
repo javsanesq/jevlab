@@ -22,8 +22,8 @@ your application remains responsible for policy and side effects.
 
 ## Install
 
-**Supported: macOS, Python 3.12+, [uv](https://docs.astral.sh/uv/getting-started/installation/).**
-Linux and Windows are not currently supported. Installation is from source;
+**Supported: macOS and Linux, Python 3.12+, [uv](https://docs.astral.sh/uv/getting-started/installation/).**
+Windows is not currently supported. Installation is from source;
 JevLab is not yet published on PyPI.
 
 ```sh
@@ -57,7 +57,7 @@ values, not a live response or an accuracy benchmark.*
 
 Press **Ctrl+Q** to leave the full-screen view. To make a real request, obtain a
 [TypeSafe API key](https://console.typesafe.ai/keys), then use the hidden prompt
-in configuration to save it in macOS Keychain:
+in configuration to save it in macOS Keychain or Linux Secret Service:
 
 ```sh
 jevlab config
@@ -114,7 +114,13 @@ CLI feature; see `jevlab serve --help`.
 - [Research](docs/RESEARCH.md) and [design decisions](docs/DECISIONS.md): API evidence and tradeoffs.
 
 New profiles live under `~/.jevlab/`; `JEVLAB_HOME` selects an isolated profile.
-Keys use Keychain or provider environment variables, never template files.
+Keys use macOS Keychain, Linux Secret Service, or provider environment variables,
+never template files. Linux protected storage requires a running Secret Service
+provider in the desktop D-Bus session. For headless Linux, set
+`credential_mode=environment` with `jevlab config --set credential_mode=environment`
+and supply `TYPESAFE_API_KEY` through your shell or process manager. JevLab never
+selects a plaintext keyring backend. The beginner's guide follows macOS; Linux
+setup is covered in the [command reference](docs/REFERENCE.md#linux-credentials).
 Run inputs and responses are stored locally in SQLite. Live Jev calls send your
 state and questions to TypeSafe; optional coaching sends selected material to
 its separate provider. See [storage and privacy](docs/REFERENCE.md#storage-costs-and-privacy).
@@ -128,7 +134,7 @@ make test
 make dev
 ```
 
-Ruff, Pyright, and pytest run in CI on macOS. Tests use isolated profiles and
+Ruff, Pyright, and pytest run in CI on macOS and Linux. Tests use isolated profiles and
 mocked provider transports; they require no API keys or paid calls. Live tests
 are opt-in. See [contribution instructions](CONTRIBUTING.md) for the architecture
 and verification workflow, and [CHANGELOG.md](CHANGELOG.md) for version history.

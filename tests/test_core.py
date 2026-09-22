@@ -10,7 +10,7 @@ from conftest import RESPONSE, MockEvaluator
 from typesafe_sdk import JSONContent
 
 from jevlab.core.client import Evaluation
-from jevlab.core.credentials import Credentials
+from jevlab.core.credentials import Credentials, secure_store_name
 from jevlab.core.errors import JevError
 from jevlab.core.models import Template
 from jevlab.core.pricing import price
@@ -198,8 +198,9 @@ def test_keychain_precedence_and_redaction(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("TYPESAFE_API_KEY", "environment-secret")
     assert credentials.resolve() == ("environment-secret", "environment")
     credentials.save("typesafe", "keychain-secret")
-    assert credentials.resolve() == ("keychain-secret", "keychain")
-    assert "secret" not in json.dumps(credentials.status())
+    assert credentials.resolve() == ("keychain-secret", secure_store_name().lower())
+    status = json.dumps(credentials.status())
+    assert "keychain-secret" not in status and "environment-secret" not in status
     assert Credentials("environment", store).require() == "environment-secret"
 
 

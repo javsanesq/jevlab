@@ -1,4 +1,4 @@
-"""macOS Keychain, with environment fallback. Never use a plaintext backend."""
+"""Native protected credential stores, with environment fallback; never plaintext."""
 
 import asyncio
 import os
@@ -26,13 +26,41 @@ class KeyStore(Protocol):
 
 
 def native_store() -> KeyStore:
-    if sys.platform != "darwin":
-        raise JevError(
-            "keychain_unavailable", "macOS Keychain is unavailable.", "Use environment mode."
-        )
-    from keyring.backends.macOS import Keyring
+    if sys.platform == "darwin":
+        from keyring.backends.macOS import Keyring
 
-    return cast(KeyStore, Keyring())
+        return cast(KeyStore, Keyring())
+    if sys.platform == "linux":
+        # Select the Secret Service backend explicitly. keyring's automatic
+        # selection can include third-party backends that persist plaintext.
+        from keyring.backends.SecretService import Keyring
+
+        return cast(KeyStore, Keyring())
+    raise JevError(
+        "keychain_unavailable",
+        "Protected credential storage is unavailable on this platform.",
+        "Use the provider environment variable with credential_mode=environment.",
+    )
+
+
+def secure_store_name() -> str:
+    return "Secret Service" if sys.platform == "linux" else "Keychain"
+
+
+def secure_store_description() -> str:
+    return "Linux Secret Service" if sys.platform == "linux" else "macOS Keychain"
+
+
+def secure_store_fix(provider: Provider) -> str:
+    if sys.platform == "linux":
+        return (
+            "Start and unlock a Secret Service provider in your desktop D-Bus session, "
+            f"or use {ENV_KEYS[provider]} with credential_mode=environment."
+        )
+    return (
+        "Unlock your login Keychain and allow access, or use "
+        f"{ENV_KEYS[provider]} with credential_mode=environment."
+    )
 
 
 class Credentials:
@@ -49,14 +77,14 @@ class Credentials:
                 backend = self._backend()
                 value = backend.get_password(SERVICE, provider)
                 if value and value.strip():
-                    return value.strip(), "keychain"
+                    return value.strip(), secure_store_name().lower()
                 value = backend.get_password(LEGACY_SERVICE, provider)
                 if value and value.strip():
-                    return value.strip(), "keychain (legacy jev-workbench)"
+                    return value.strip(), f"{secure_store_name().lower()} (legacy jev-workbench)"
             except Exception:
                 value = os.environ.get(ENV_KEYS[provider], "").strip()
                 return (
-                    (value, "environment (Keychain unavailable)")
+                    (value, f"environment ({secure_store_name()} unavailable)")
                     if value
                     else (None, "unavailable")
                 )
@@ -82,8 +110,8 @@ class Credentials:
         except Exception:
             raise JevError(
                 "keychain_unavailable",
-                "Could not save the key to macOS Keychain.",
-                f"Unlock your login Keychain, or use {ENV_KEYS[provider]} in environment mode.",
+                f"Could not save the key to {secure_store_description()}.",
+                secure_store_fix(provider),
                 3,
             ) from None
 
@@ -121,9 +149,8 @@ class Credentials:
                 if source == "unavailable":
                     status["error"] = JevError(
                         "keychain_unavailable",
-                        f"The {provider} API key could not be checked in Keychain.",
-                        "Unlock your login Keychain and allow access, or use "
-                        f"{ENV_KEYS[provider]} with credential_mode=environment.",
+                        f"The {provider} API key could not be checked in {secure_store_name()}.",
+                        secure_store_fix(provider),
                         3,
                     ).as_dict()
                 result[provider] = status
@@ -138,8 +165,7 @@ class Credentials:
                         "credential_timeout",
                         f"Checking the {provider} API key did not finish before the "
                         "diagnostic deadline; whether a key is present is unknown.",
-                        "Unlock your login Keychain and allow access, or use "
-                        f"{ENV_KEYS[provider]} with credential_mode=environment.",
+                        secure_store_fix(provider),
                         3,
                     ).as_dict(),
                 }
@@ -149,7 +175,7 @@ class Credentials:
 async def resolve_credentials(
     credentials: Credentials, provider: Provider
 ) -> tuple[str | None, str]:
-    """Keep native Keychain prompts out of the event loop and its shutdown executor.
+    """Keep native credential prompts out of the event loop and its shutdown executor.
 
     Native calls cannot be cancelled. A daemon worker discards a late result after
     cancellation, without printing exceptions or retaining a pending async task.
@@ -188,8 +214,7 @@ async def require_credentials(credentials: Credentials, *, timeout_seconds: floa
         raise JevError(
             "credential_timeout",
             "Reading the TypeSafe API key timed out. No API request was sent.",
-            "Unlock your login Keychain and allow access, then retry. "
-            "For unattended runs, use TYPESAFE_API_KEY with credential_mode=environment.",
+            secure_store_fix("typesafe"),
             3,
         ) from None
     if not key:

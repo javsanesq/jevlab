@@ -184,7 +184,7 @@ class TourScreen(WorkbenchScreen):
             "A TypeSafe API key is a private password for your account. It allows live Jev "
             "requests, which may cost money. Choose Add a key to open Settings, select "
             "TypeSafe, enter the key in the hidden password field, and choose Save key "
-            "to Keychain. Press Escape to return here.\n\n"
+            "to protected storage. Press Escape to return here.\n\n"
             "You can continue to the free demo without a key. You can add one later in Settings.",
             "Step 2 of 3 / Explore a free recorded example\n\n"
             "A customer says: I was charged twice for one order. Please refund the duplicate "

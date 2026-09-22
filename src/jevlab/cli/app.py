@@ -331,7 +331,7 @@ def config(
     ] = None,
     provider: Annotated[str, typer.Option(help="Credential provider.")] = "typesafe",
     key_stdin: Annotated[
-        bool, typer.Option("--key-stdin", help="Read a key from stdin into Keychain.")
+        bool, typer.Option("--key-stdin", help="Read a key from stdin into protected storage.")
     ] = False,
 ) -> None:
     wb = workbench()
@@ -347,13 +347,13 @@ def config(
             raise JevError(
                 "invalid_setting",
                 "Unknown or malformed setting.",
-                "Use --set FIELD=VALUE. Keys belong in Keychain.",
+                "Use --set FIELD=VALUE. Keys belong in protected storage.",
             )
         values[field] = value
     if key_stdin and values.get("credential_mode") == "environment":
         raise JevError(
             "invalid_setting",
-            "The key would be saved to Keychain but environment-only mode was requested.",
+            "The key would be saved to protected storage but environment-only mode was requested.",
             "Omit --set credential_mode=environment when using --key-stdin, or set the key "
             "in the provider's environment variable instead.",
         )
@@ -390,7 +390,7 @@ def config(
                 Credentials().save(selected, value)
                 values["credential_mode"] = "keychain"
         else:
-            console.print(Text("JevLab setup · keys stay in Keychain or your environment"))
+            console.print(Text("JevLab setup · keys stay in protected storage or your environment"))
             expert = typer.confirm(
                 "Show Expert mode (all technical options)? "
                 "Simple mode guides you through common tasks.",

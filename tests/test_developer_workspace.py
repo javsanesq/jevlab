@@ -4,7 +4,7 @@ import pytest
 from textual.containers import VerticalScroll
 from textual.widgets import Button, Input, Select, Static, TextArea
 
-from jevlab.core.credentials import Credentials
+from jevlab.core.credentials import Credentials, secure_store_name
 from jevlab.core.models import Template
 from jevlab.core.service import Workbench
 from jevlab.tui.app import JevApp
@@ -132,15 +132,17 @@ async def test_environment_key_save_enables_the_source_it_advertises(
     async with app.run_test(size=(80, 24)) as pilot:
         screen = SettingsScreen(wb)
         await app.push_screen(screen)
-        assert str(screen.query_one("#save-key", Button).label) == "Save key and use Keychain"
+        assert str(screen.query_one("#save-key", Button).label) == (
+            f"Save key and use {secure_store_name()}"
+        )
         assert "Environment-only mode" in str(screen.query_one("#key-source", Static).content)
         screen.query_one("#api-key", Input).value = "synthetic-offline-credential"
         await screen.save_key().wait()
         await pilot.pause()
         assert screen.query_one("#api-key", Input).value == ""
         assert wb.settings.credential_mode == "keychain"
-        assert Credentials(wb.settings.credential_mode).resolve()[1] == "keychain"
-        assert "Keychain lookup is active" in str(
+        assert Credentials(wb.settings.credential_mode).resolve()[1] == secure_store_name().lower()
+        assert f"{secure_store_name()} lookup is active" in str(
             screen.query_one("#settings-status", Static).content
         )
         assert wb.storage.history() == []

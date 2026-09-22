@@ -234,3 +234,10 @@ in their separately reviewed phases.
 | D101 | Run the installer outside the project environment, using uv to supply a compatible Python for the standard-library preflight. | Cold installation otherwise resolves and downloads Ruff, Pyright and other development dependencies before installing the tool. The editable tool installation still resolves its own runtime dependencies. |
 | D102 | Hide run timing, token and cost fields only in the human-readable recorded demo, while preserving its JSON fixture contract. | Zero usage and unknown latency in a teaching fixture can be misread as measurements from a live Jev request. The probability bars remain explicitly illustrative. |
 | D103 | In Simple mode, interactive `jevlab config` prompts directly for the TypeSafe key and switches to Keychain lookup only after a successful save. Apply the same post-save switch to `--key-stdin`, rejecting a contradictory environment-only setting. Keep expert settings in the TUI and `--set`. | Asking about display mode, environment mode and model before the first key makes setup harder; a saved key must not be left invisible to the active lookup mode. JSON envelope and ordinary exit codes stay unchanged. |
+
+## Developer workbench, Phase 4 — Linux support (2026-09-23)
+
+| ID | Decision | Reason |
+| --- | --- | --- |
+| D104 | On Linux, select keyring's Secret Service backend explicitly; do not use automatic backend discovery. Keep the existing `credential_mode=keychain` setting for profile compatibility and report the actual source as Secret Service. | Automatic discovery could select a third-party plaintext backend. The mode is a persisted compatibility value; the user-facing name should describe the Linux credential store. |
+| D105 | Support headless Linux through environment-only mode and document the need for a running desktop D-Bus Secret Service provider for interactive protected storage. Run the offline CI and installed-command checks on both macOS and Linux. Leave Windows unsupported. | The existing path/config layout is portable. A headless server has no native interactive secret store by default; it must not silently write keys to a file. |

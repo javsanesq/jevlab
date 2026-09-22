@@ -26,7 +26,13 @@ from textual.widgets import (
 
 from jevlab.core.coach_models import normalize_coach_model
 from jevlab.core.config import PRIVACY
-from jevlab.core.credentials import Credentials, Provider
+from jevlab.core.credentials import (
+    Credentials,
+    Provider,
+    secure_store_description,
+    secure_store_fix,
+    secure_store_name,
+)
 from jevlab.core.doctor import inspect
 from jevlab.core.errors import JevError
 from jevlab.core.files import read_text
@@ -737,14 +743,16 @@ class SettingsScreen(WorkbenchScreen):
             or self.query_one("#credential-mode", Select).value == "environment"
         )
         self.query_one("#save-key", Button).label = (
-            "Save key and use Keychain" if environment else "Save key to Keychain"
+            f"Save key and use {secure_store_name()}"
+            if environment
+            else f"Save key to {secure_store_name()}"
         )
         self.query_one("#key-source", Static).update(
             "Environment-only mode is active. Saving a key here switches credential lookup "
-            "to Keychain first, with environment variables as fallback."
+            f"to {secure_store_name()} first, with environment variables as fallback."
             if environment
-            else "Keys are read from macOS Keychain first, then environment variables. "
-            "Saving costs nothing and makes no API call."
+            else f"Keys are read from {secure_store_description()} first, then environment "
+            "variables. Saving costs nothing and makes no API call."
         )
 
     def validate_model(self) -> bool:
@@ -854,12 +862,12 @@ class SettingsScreen(WorkbenchScreen):
                 ),
                 "Private access key (API key)",
                 "Paste the key from the selected provider's account page. The field stays "
-                "hidden; save to macOS Keychain.",
+                f"hidden; save to {secure_store_description()}.",
             )
-            yield Button("Save key to Keychain", id="save-key")
+            yield Button(f"Save key to {secure_store_name()}", id="save-key")
             yield Static(
-                "Keychain is macOS's protected storage. Saving a key costs nothing "
-                "and does not verify it with the provider.",
+                f"{secure_store_description()} is protected storage. Saving a key costs "
+                "nothing and does not verify it with the provider.",
                 classes="muted",
                 id="key-source",
             )
@@ -897,7 +905,10 @@ class SettingsScreen(WorkbenchScreen):
                 yield Field(
                     Select(
                         [
-                            ("Keychain first, then environment variables", "keychain"),
+                            (
+                                f"{secure_store_name()} first, then environment variables",
+                                "keychain",
+                            ),
                             ("Environment variables only (advanced)", "environment"),
                         ],
                         value=config.credential_mode,
@@ -905,9 +916,9 @@ class SettingsScreen(WorkbenchScreen):
                         id="credential-mode",
                     ),
                     "Where to find account keys",
-                    "Keychain checks protected macOS storage, then environment variables. "
-                    "Environment mode skips Keychain.",
-                    "Keychain first for a personal Mac.",
+                    f"{secure_store_name()} checks protected storage, then environment "
+                    f"variables. Environment mode skips {secure_store_name()}.",
+                    f"{secure_store_name()} first on a personal computer.",
                 )
                 with Horizontal(classes="form-row"):
                     with Vertical():
@@ -1047,7 +1058,8 @@ class SettingsScreen(WorkbenchScreen):
                 self.baseline = self.snapshot()
             self.update_key_mode()
             self.query_one("#settings-status", Static).update(
-                "Key stored in macOS Keychain; Keychain lookup is active. No API call was made."
+                f"Key stored in {secure_store_description()}; {secure_store_name()} lookup "
+                "is active. No API call was made."
             )
         except JevError as error:
             self.query_one("#settings-status", Static).update(human_error(error))
@@ -1057,11 +1069,12 @@ class SettingsScreen(WorkbenchScreen):
                 "file_error",
                 "The key was stored, but the credential source could not be saved."
                 if key_stored
-                else "The key could not be saved to Keychain.",
-                "Check that config.toml is writable, then select Keychain in settings and save. "
+                else f"The key could not be saved to {secure_store_name()}.",
+                f"Check that config.toml is writable, then select {secure_store_name()} in "
+                "settings and save. "
                 "The stored key will not be used while environment-only mode is active."
                 if key_stored
-                else "Unlock your login Keychain and try saving the key again.",
+                else secure_store_fix(provider),
             )
             self.query_one("#settings-status", Static).update(human_error(error))
             self.report_error(error)

@@ -2,6 +2,29 @@
 
 Versions describe the workbench application, not TypeSafe's model versions.
 
+## 0.10.0 — 2026-09-23
+
+Status: complete.
+
+- Support Linux desktops through the Secret Service credential backend, selected
+  explicitly so a plaintext keyring backend cannot be used by accident.
+- Support headless Linux through existing environment-only credential mode.
+  Preserve the `credential_mode=keychain` config value for older profiles while
+  showing Secret Service in Linux guidance and diagnostics.
+- Test the offline workbench and installed command on both macOS and Linux in CI.
+  Windows remains unsupported. The beginner's guide still follows macOS, with
+  Linux setup documented in the command reference.
+
+Verification: `make lint` passed on macOS (Ruff, formatting, Pyright).
+The full offline suite passed on macOS and in a Linux container: **794 passed,
+one opt-in live test skipped** on each platform. An installed 0.10.0 command
+worked outside the checkout on both systems; Linux also passed a headless
+credential diagnostic and a Textual settings-screen check. Package inventory
+and complete-history privacy checks found no unexplained private material.
+**No live provider API call was made.** A desktop Secret Service save/unlock
+round trip remains unverified; headless environment mode is tested. Linux
+Pyright runs in GitHub CI on the standard Ubuntu runner.
+
 ## 0.9.1 — 2026-09-22
 
 Status: complete.

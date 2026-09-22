@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import httpx2
 
+from jevlab.core.credentials import secure_store_name
 from jevlab.core.errors import JevError
 
 
@@ -166,8 +167,8 @@ def coach_error(error: Exception, *, provider: str = "", secrets: Iterable[str] 
         code, summary, fix, retryable = (
             "coach_timeout",
             "The coach did not finish before its time limit.",
-            "Check the connection and any Keychain prompt, then retry or increase "
-            "coach_timeout_seconds in jevlab config.",
+            f"Check the connection and any {secure_store_name()} prompt, then retry "
+            "or increase coach_timeout_seconds in jevlab config.",
             True,
         )
     elif isinstance(error, httpx2.NetworkError) or type(error).__name__ == "APIConnectionError":

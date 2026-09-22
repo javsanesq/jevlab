@@ -6,15 +6,16 @@ Use this page for scripting contracts, saved templates, evaluation, configuratio
 and optional integrations. The [project README](../README.md) introduces the core workflow.
 
 [CLI](#cli-and-pipes) · [Templates](#templates-and-keys) · [Evaluation](#evaluate-tune-batch-and-compare) ·
-[Exports](#export-a-decision-into-your-project) · [Coach](#optional-coach) · [Upgrading](#upgrading-from-jev)
+[Exports](#export-a-decision-into-your-project) · [Coach](#optional-coach) ·
+[Linux credentials](#linux-credentials) · [Upgrading](#upgrading-from-jev)
 
 ## CLI and pipes
 
 Every implemented command accepts `--json`, before or after the command/subcommand.
 JSON stdout is one envelope: `{"schema_version":1,"ok":true,"data":...}` or
 `{"schema_version":1,"ok":false,"error":...}`. Diagnostics go to stderr.
-JSON mode does not prompt for text or open the TUI; macOS may still require
-permission to access Keychain. Use environment mode for unattended execution.
+JSON mode does not prompt for text or open the TUI; protected credential storage
+may still require an unlock prompt. Use environment mode for unattended execution.
 
 ```sh
 jevlab --version
@@ -45,7 +46,7 @@ per-template totals across all retained runs, separate from the filtered list.
 | --- | --- |
 | 0 | Command completed; inspect doctor findings or routing separately |
 | 2 | Invalid arguments, input, configuration, or local storage |
-| 3 | Missing credential or unavailable Keychain |
+| 3 | Missing credential or unavailable protected storage |
 | 4 | API, network, timeout, or response-validation failure |
 | 130 | Interrupted CLI command |
 
@@ -56,6 +57,31 @@ Provider failures retain their message, HTTP status, request ID, and a
 credential-redacted response body. F2 opens those details in the TUI;
 `jevlab --verbose history show RUN_ID` shows them for a saved failure in the CLI.
 Older failures may lack a body because earlier versions discarded it.
+
+## Linux credentials
+
+On Linux, `credential_mode=keychain` is the existing configuration name for
+protected storage. It uses **Secret Service** through the desktop D-Bus session;
+JevLab selects that backend explicitly and never falls back to a plaintext
+keyring. A desktop needs a running, unlocked Secret Service provider, such as
+GNOME Keyring. `jevlab config` can save a key there. `jevlab doctor` reports
+whether the provider can be read, without showing a key value.
+[Keyring's Linux guidance](https://github.com/jaraco/keyring#using-keyring-on-headless-linux-systems)
+explains the D-Bus and daemon requirements.
+
+On a headless Linux machine without a desktop Secret Service, choose environment
+mode and provide the key through your shell or process manager:
+
+```sh
+jevlab config --set credential_mode=environment
+jevlab doctor
+```
+
+Set `TYPESAFE_API_KEY` in the process environment before a live run. For optional
+coaching, the names are `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`. Do not put keys
+in `config.toml`, a command argument, source files, or a checked-in environment
+file. The recorded `jevlab demo` works without any key or desktop service.
+Windows is not supported.
 
 ## Templates and keys
 
@@ -137,11 +163,11 @@ requested and returned model IDs. The verified published rate is **$0.042 per
 million input tokens, output free**, dated 2026-09-20. Cost is an estimate based on
 reported usage and a saved rate snapshot, not a billing receipt. Unknown usage
 or unknown model pricing stays unknown. Totals count unknown-cost runs separately.
-Latency measures the complete SDK call, including retries, excluding Keychain lookup.
+Latency measures the complete SDK call, including retries, excluding credential lookup.
 Comparison timings also include the brief wait to register both linked history rows.
 
 Requests use the SDK's two retries by default, a 10-second timeout per HTTP
-operation, and a 45-second overall deadline including credential lookup. Keychain
+operation, and a 45-second overall deadline including credential lookup. Protected storage
 lookup is limited to five seconds (or the shorter overall deadline); a lookup
 timeout reports that no API request was sent. Configure request limits with
 `jevlab config --set max_retries=2 --set timeout_seconds=10 --set deadline_seconds=45`.
@@ -380,7 +406,8 @@ jevlab config --provider anthropic
 
 Later `make install` upgrades preserve the coach extras already installed.
 Keep using your existing source folder if it is still named `~/jev`.
-Setup stores keys in macOS Keychain, with `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`
+Setup stores keys in macOS Keychain or Linux Secret Service, with
+`ANTHROPIC_API_KEY` and `OPENAI_API_KEY`
 as environment fallbacks. Never put a key in a command argument or configuration
 file. Each provider now keeps its own configurable model: `anthropic_model`
 defaults to `claude-haiku-4-5-20251001`; `openai_model` defaults to `gpt-5.6-luna`.

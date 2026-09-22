@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from jevlab.core import doctor
 from jevlab.core.compare import compare
-from jevlab.core.credentials import Credentials, Provider
+from jevlab.core.credentials import Credentials, Provider, secure_store_fix, secure_store_name
 from jevlab.core.models import Template
 from jevlab.core.service import Workbench
 from jevlab.tui.app import JevApp
@@ -71,7 +71,7 @@ async def test_status_is_callable_from_an_active_event_loop(
     assert report["openai"] == {"present": False, "source": "missing"}
     error = cast(dict[str, object], cast(dict[str, object], report["anthropic"])["error"])
     assert error["code"] == "keychain_unavailable"
-    assert "Unlock your login Keychain" in str(error["fix"])
+    assert secure_store_fix("anthropic") == error["fix"]
     assert "private" not in json.dumps(report)
 
 
@@ -122,7 +122,7 @@ def test_actual_doctor_cli_bounds_preflight_and_reports_unknown_key_status(
             assert result.exit_code == 0, result.output
             assert "could not check" in result.stdout
             assert "whether a key is present is unknown" in result.stdout
-            assert "Unlock your login Keychain" in result.stdout
+            assert secure_store_name() in " ".join(result.stdout.split())
             assert "not added" not in result.stdout
     finally:
         release.set()
@@ -150,7 +150,7 @@ async def test_simple_tui_doctor_explains_timeout_instead_of_claiming_missing_ke
             assert "TypeSafe key: not found" not in text
             assert "key: could not check" in text
             assert "whether a key is present is unknown" in text
-            assert "Unlock your login Keychain" in text
+            assert secure_store_fix("typesafe") in text
             assert "synthetic-unused-credential" not in text
     finally:
         release.set()

@@ -17,7 +17,13 @@ from jevlab.coach.diagnostics import (
     safe_value,
 )
 from jevlab.coach.service import DIAGNOSTIC_INSTRUCTIONS, SYSTEM
-from jevlab.core.credentials import ENV_KEYS, LEGACY_SERVICE, SERVICE, Credentials
+from jevlab.core.credentials import (
+    ENV_KEYS,
+    LEGACY_SERVICE,
+    SERVICE,
+    Credentials,
+    secure_store_name,
+)
 from jevlab.core.models import Settings
 
 ADVICE = {
@@ -119,7 +125,8 @@ async def test_coach_probe_resolves_each_key_once_and_returns_validated_advice(
     )
     row = next(row for row in reports if row["provider"] == provider)
     assert row["status"] == "succeeded" and row["network_checked"] is True
-    assert row["key_found"] is True and row["key_source"] == source
+    expected_source = secure_store_name().lower() if source == "keychain" else source
+    assert row["key_found"] is True and row["key_source"] == expected_source
     assert row["sdk_installed"] is True and row["sdk_version"]
     result = row["result"]
     assert isinstance(result, dict)
@@ -152,7 +159,7 @@ async def test_keychain_unavailable_falls_back_to_environment(
     )
     row = reports[1]
     assert row["key_found"] is True
-    assert row["key_source"] == "environment (Keychain unavailable)"
+    assert row["key_source"] == f"environment ({secure_store_name()} unavailable)"
     assert "secret Keychain backend detail" not in json.dumps(reports)
 
 

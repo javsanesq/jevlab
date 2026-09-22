@@ -1,6 +1,6 @@
 # The beginner's guide to JevLab
 
-For macOS · English · jevlab 0.9.1
+For macOS · English · jevlab 0.10.0
 
 The application is named **JevLab** and launches with `jevlab`. New installations
 keep personal files in `~/.jevlab/`. An upgrade keeps using an existing `~/.jev/`
@@ -277,7 +277,7 @@ that this tool needs. uv keeps them in a separate environment for `jevlab`.
    **You should see:**
 
    ```text
-   jevlab 0.9.1
+   jevlab 0.10.0
    ```
 
    A later release may show a higher number. If the command is not found, see
@@ -1011,7 +1011,7 @@ Older saved failures may not contain details that earlier versions discarded.
 | Symptom | What it means and how to fix it |
 | --- | --- |
 | `command not found: jevlab` | The shell cannot find the installed command. **1.** Run `uv tool update-shell`. You should see an update or already-configured message. **2.** Open a new Terminal window. You should see a new prompt. **3.** Run `jevlab --version`. You should see its version. If no installation exists, section 4 provides the numbered installation steps. |
-| `command not found: jev` after an upgrade | The workbench command has changed. **1.** Run `jevlab --version`. You should see `jevlab 0.9.1` or a later version. Use `jevlab` for the other commands in this guide. |
+| `command not found: jev` after an upgrade | The workbench command has changed. **1.** Run `jevlab --version`. You should see `jevlab 0.10.0` or a later version. Use `jevlab` for the other commands in this guide. |
 | Old saved work seems missing | Two data folders may exist, or an environment variable may select a separate profile. A **profile** is the folder containing this app's saved work and settings. **1.** Run `jevlab doctor`. You should see the active folder beside **Local files**. **2.** If your earlier work is in `~/.jev/`, run `JEVLAB_HOME=~/.jev jevlab`. You should see the earlier templates and history; neither folder is merged or erased. |
 | `command not found: uv` | uv is absent or not on PATH. The installer steps in section 4 show how to add it and check its version. |
 | `cd: no such file or directory` | The source folder is not at `~/jevlab`. Section 4's source-folder steps show where to put it. A successful `cd ~/jevlab` then returns a prompt without an error. Older installations may still be at `~/jev`. |

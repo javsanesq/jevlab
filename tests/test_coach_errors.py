@@ -14,7 +14,13 @@ from test_coach import ADVICE, FakeAdvisor, coach_settings, provider_response
 
 from jevlab.coach.errors import coach_error, sanitize_text
 from jevlab.coach.service import Coach, Completion, ProviderAdvisor, resolve_credentials
-from jevlab.core.credentials import LEGACY_SERVICE, SERVICE, Credentials, Provider
+from jevlab.core.credentials import (
+    LEGACY_SERVICE,
+    SERVICE,
+    Credentials,
+    Provider,
+    secure_store_name,
+)
 from jevlab.core.errors import JevError
 from jevlab.core.models import Settings, Template
 from jevlab.core.service import Workbench
@@ -250,7 +256,7 @@ async def test_keychain_wait_is_inside_coach_deadline(
         async with asyncio.timeout(0.5):
             with pytest.raises(JevError) as caught:
                 await Coach(settings).critique(design)
-        assert caught.value.code == "coach_timeout" and "Keychain" in caught.value.fix
+        assert caught.value.code == "coach_timeout" and secure_store_name() in caught.value.fix
     finally:
         release.set()
 

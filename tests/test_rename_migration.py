@@ -11,7 +11,14 @@ from typer.testing import CliRunner
 
 from jevlab.cli.app import app
 from jevlab.core.config import data_directory, profile_notice, save_settings
-from jevlab.core.credentials import ENV_KEYS, LEGACY_SERVICE, SERVICE, Credentials, Provider
+from jevlab.core.credentials import (
+    ENV_KEYS,
+    LEGACY_SERVICE,
+    SERVICE,
+    Credentials,
+    Provider,
+    secure_store_name,
+)
 from jevlab.core.errors import JevError
 from jevlab.core.models import Settings
 from jevlab.core.service import Workbench
@@ -203,7 +210,10 @@ def test_keychain_service_precedence_preserves_all_provider_keys(
     }
     store = SyntheticKeyStore(entries)
     monkeypatch.setenv(ENV_KEYS[provider], "offline-environment")
-    assert Credentials(store=store).resolve(provider) == (expected, source)
+    assert Credentials(store=store).resolve(provider) == (
+        expected,
+        source.replace("keychain", secure_store_name().lower()),
+    )
     assert store.reads[0] == ("jevlab", provider)
     if source == "keychain":
         assert len(store.reads) == 1
@@ -221,7 +231,7 @@ def test_saving_key_writes_only_current_service_and_environment_mode_skips_both(
     credentials.save(provider, " offline-new ")
     assert store.writes == [("jevlab", provider, "offline-new")]
     assert store.entries["jev-workbench", provider] == "offline-legacy"
-    assert credentials.resolve(provider) == ("offline-new", "keychain")
+    assert credentials.resolve(provider) == ("offline-new", secure_store_name().lower())
     store.reads.clear()
     monkeypatch.setenv(ENV_KEYS[provider], "offline-environment")
     assert Credentials("environment", store).resolve(provider) == (

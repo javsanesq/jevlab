@@ -11,8 +11,12 @@ permissions:
 
 jobs:
   verify:
-    name: macOS / Python 3.12
-    runs-on: macos-latest
+    name: ${{ matrix.os }} / Python 3.12
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
     timeout-minutes: 20
     env:
       UV_LOCKED: "true"

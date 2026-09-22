@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, SystemOneResponse
 
+from jevlab.core.credentials import secure_store_description, secure_store_name
 from jevlab.core.models import Run
 
 WELCOME = (
@@ -88,12 +89,18 @@ GLOSSARY: dict[str, str] = {
     "API key": (
         "A private password that lets this tool use your provider account. For example, "
         "a TypeSafe key allows live Jev runs and charges them to that account. Enter it "
-        "only in the password field; jevlab saves it in macOS Keychain, not in your templates."
+        f"only in the password field; jevlab saves it in {secure_store_description()}, "
+        "not in your templates."
     ),
     "Keychain": (
         "The password storage built into macOS. For example, jevlab can retrieve your saved "
         "TypeSafe key without asking you to type it each time. Never put a key in a "
         "template, shared screenshot, or chat message."
+    ),
+    "Secret Service": (
+        "Protected password storage on a Linux desktop, accessed through D-Bus. "
+        "For example, jevlab can retrieve a saved TypeSafe key without placing it "
+        "in a template. A headless session can use environment mode instead."
     ),
     "Human review": (
         "A recommendation that a person check the answer before it is used. For example, "
@@ -196,16 +203,16 @@ _controls(
     "save-key",
     "Save the key securely",
     "This saves the password-field contents in "
-    "macOS Keychain for the selected provider. It does not make a paid request.",
-    "Keychain",
+    f"{secure_store_description()} for the selected provider. It does not make a paid request.",
+    secure_store_name(),
 )
 _controls(
     "credential-mode",
     "Where jevlab looks for keys",
-    "Keychain mode checks macOS password "
-    "storage and then an environment variable. Environment mode reads only variables set "
+    f"Protected-storage mode checks {secure_store_description()} "
+    "and then an environment variable. Environment mode reads only variables set "
     "outside the app; that is an advanced setup option.",
-    "Keychain",
+    secure_store_name(),
 )
 _controls(
     "state-editor compare-state state-example",

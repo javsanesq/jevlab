@@ -1,7 +1,9 @@
 # Quickstart
 
 Install from source, inspect a free recorded example, then run a real Jev decision.
-This guide assumes macOS and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+This guide follows macOS. Linux users can use the same installation commands and
+[Linux credential setup](REFERENCE.md#linux-credentials). Install
+[uv](https://docs.astral.sh/uv/getting-started/installation/) first.
 New to Terminal? Use the [beginner's guide](GUIDE.md). [All documentation](README.md).
 
 ## Install
@@ -13,7 +15,7 @@ uv run --no-project --python '>=3.12' python scripts/install.py
 jevlab --version
 ```
 
-Expect `jevlab 0.9.1` or later. Keep the checkout: this is an editable installation.
+Expect `jevlab 0.10.0` or later. Keep the checkout: this is an editable installation.
 `make install` is an optional shortcut when `make` is available.
 If the command is missing, run `uv tool update-shell` and open a new terminal.
 PyPI installation is not yet available. Existing users should keep their current

@@ -8,6 +8,7 @@ from rich.text import Text
 
 from jevlab.cli.common import JsonFlag, console, emit, guarded, launch, workbench
 from jevlab.core.config import data_directory
+from jevlab.core.credentials import secure_store_description
 from jevlab.core.demo import load_demo
 from jevlab.core.errors import JevError
 from jevlab.core.guidance import GLOSSARY, WELCOME, explain_answer
@@ -45,7 +46,8 @@ def tour(json_output: JsonFlag = False) -> None:
         {
             "title": "Add a key when ready",
             "text": "An API key is a private password for your provider account. Run jevlab config "
-            "to save a TypeSafe key securely in macOS Keychain. You can skip this for the demo.",
+            f"to save a TypeSafe key securely in {secure_store_description()}. "
+            "You can skip this for the demo.",
         },
         {
             "title": "Try the free recorded demo",

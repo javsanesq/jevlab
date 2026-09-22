@@ -8,7 +8,7 @@ from time import monotonic
 import pytest
 
 from jevlab.core import doctor, service
-from jevlab.core.credentials import Credentials, Provider
+from jevlab.core.credentials import Credentials, Provider, secure_store_fix
 from jevlab.core.errors import JevError
 from jevlab.core.jobs import BatchService
 from jevlab.core.models import Template
@@ -43,7 +43,7 @@ def test_blocked_keychain_does_not_block_deadline_or_loop_shutdown(
         error = caught.value
         assert error.code == "credential_timeout" and error.exit_code == 3
         assert "No API request was sent" in human_error(error)
-        assert "Unlock your login Keychain" in human_error(error)
+        assert secure_store_fix("typesafe") in human_error(error)
         assert "TYPESAFE_API_KEY" in error.fix
         if operation == "run":
             saved = wb.storage.get(error.run_id or "")

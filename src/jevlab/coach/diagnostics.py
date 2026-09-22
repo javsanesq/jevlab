@@ -18,7 +18,7 @@ from jevlab.coach.service import (
     resolve_credentials,
 )
 from jevlab.core.coach_models import CoachProvider
-from jevlab.core.credentials import ENV_KEYS, Credentials
+from jevlab.core.credentials import ENV_KEYS, Credentials, secure_store_fix
 from jevlab.core.errors import JevError
 from jevlab.core.models import Settings, Template
 
@@ -139,7 +139,7 @@ async def check_coaches(
                 JevError(
                     "coach_keychain_timeout",
                     f"The {provider} credential lookup timed out.",
-                    f"Unlock macOS Keychain or use {ENV_KEYS[provider]} in environment mode.",
+                    secure_store_fix(provider),
                     3,
                 ).as_dict()
             )
