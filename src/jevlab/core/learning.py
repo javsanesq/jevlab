@@ -22,7 +22,7 @@ from jevlab.core.evaluation import (
     threshold_stats,
 )
 from jevlab.core.models import Run, StrictModel, Template
-from jevlab.core.pricing import price
+from jevlab.core.pricing import over_budget, price
 from jevlab.core.service import Workbench
 from jevlab.core.storage import now
 from jevlab.core.templates import context_estimate, dump_template, parse_template
@@ -160,7 +160,7 @@ def exercise_plan(
         available_fields=available,
         estimated_input_tokens=tokens,
         estimated_cost_nanousd=cost,
-        requires_confirmation=cost is None or cost / 1_000_000_000 > wb.settings.confirm_cost_usd,
+        requires_confirmation=over_budget(cost, wb.settings.confirm_cost_usd),
         design_feedback=feedback,
     )
 

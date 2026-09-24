@@ -504,12 +504,13 @@ Unknown cost means a price or usage figure could not be established; it does not
 mean free.
 
 **Get answers** starts a single paid Jev run immediately, with no price prompt.
-The result shows its cost estimate based on the returned token usage. Batch and
-eval runs ask before starting; each has its own **Don't ask again** choice.
-Even a one-row batch or eval asks. That choice is saved only when you accept
-the job. Cancelling never turns future prompts off.
-Coach requests, comparisons, and lesson grading still ask before spending.
-An estimate is not a hard cap: **retries**, or repeated attempts
+The result shows its cost estimate based on the returned token usage. Batches,
+evaluations, comparisons, lesson grading and coach requests follow one rule: when
+the estimate is at or below your **confirmation budget** ($1.00 unless you change
+it in Settings), they start and show a short notice with the estimate; above it,
+or when the price is unknown, they ask first and **Cancel** is selected. At
+TypeSafe's published rate, a thousand short cases cost about two cents, so most
+everyday jobs start without a prompt. An estimate is not a hard cap: **retries**, or repeated attempts
 after a temporary failure, can add cost. The advanced `--json` option asks for
 results formatted for another program. **Piped input** sends one program's text
 straight to another program. Those forms preserve their existing automated
@@ -763,9 +764,8 @@ relying on a design. It makes a paid request for each case that needs running.
    each line. CSV, a table saved as text, is also supported.
 
 **Check file and price** reads the file and estimates its cost without calling
-Jev. **Start with Jev** shows a price prompt unless you previously turned it off
-for evaluations. Its **Don't ask again before evaluations** checkbox affects
-evaluations only, and saves your choice only after you accept the job.
+Jev. **Start with Jev** begins immediately when the estimate is within your
+confirmation budget, and asks first when it is above the budget or unknown.
 
 The report shows **accuracy**, the share of correct answers. Its **More options**
 view also shows a **confusion matrix**, a table of which answers were mistaken
@@ -846,37 +846,28 @@ number of requests. Large source datasets stay at their original paths.
    It can resume interrupted jobs. A request interrupted after reaching the
    provider may already have been billed; the app explains that before retrying.
 
-**Start with Jev** asks before processing the file, including a file with one
-case. **Don't ask again before batch runs** remembers your choice for future
-interactive batch runs only. It does not turn off evaluation prompts.
+**Start with Jev** follows the same confirmation budget: it begins immediately
+for an estimate within the budget and asks first above it.
 
-In terminal commands, `--yes` skips that job's prompt once. For example,
+In terminal commands, `--yes` authorizes one job above the budget. For example,
 `jevlab eval run support-triage ~/jevlab/examples/support-eval.jsonl --yes` starts
-a paid evaluation immediately. It does not save a preference. Scripted JSON
-and piped commands keep their cost-budget checks; a saved interactive preference
-does not bypass them.
+a paid evaluation immediately. It does not change any setting. Scripted JSON
+and piped commands never prompt: above the budget they stop before any request
+unless `--yes` is given.
 
-The **Ask before batch runs** and **Ask before evaluations** controls in Settings
-can restore the prompts. The following commands do the same without making a
-paid request, after leaving the full-screen app:
+The **Confirmation budget** field in Settings changes the amount. The following
+command does the same without making a paid request, after leaving the
+full-screen app:
 
 1. Run:
 
    ```sh
-   jevlab config --set confirm_batch_cost=true
+   jevlab config --set confirm_cost_usd=5
    ```
 
-   **You should see:** a settings-saved message. Future interactive batches ask
-   before starting again.
-
-2. Run:
-
-   ```sh
-   jevlab config --set confirm_eval_cost=true
-   ```
-
-   **You should see:** a settings-saved message. Future interactive evaluations
-   ask before starting again.
+   **You should see:** a settings-saved message. Jobs estimated at $5 or less now
+   start without asking. Use `confirm_cost_usd=0` to be asked before every
+   priced job.
 
 ### Learn mode: practice on small exercises
 
@@ -979,16 +970,13 @@ that token must not be your TypeSafe key.
    jevlab serve
    ```
 
-   **You should see:** a confirmation explaining that later requests can cost
-   money. Starting the server is free; its total future cost is unknown.
+   **You should see:** a notice that each accepted request is a billable Jev
+   call, then a listening message for the local address. Starting the server is
+   free. Individual requests do not get a terminal prompt; a request estimated
+   above your confirmation budget is refused unless the program explicitly
+   authorizes it. This guide does not send a decision request to the server.
 
-4. Answer `y` only if you want to allow connected programs to make paid requests.
-
-   **You should see:** a listening message for the local address. Individual
-   requests do not get a new terminal prompt. Existing request budget rules
-   still apply. This guide does not send a decision request to the server.
-
-5. Press Ctrl+C when you are finished.
+4. Press Ctrl+C when you are finished.
 
    **You should see:** the terminal prompt again. The server has stopped.
 
@@ -998,7 +986,8 @@ on separate cases. These advanced CLI tools can be ignored while learning the ba
 
 ## 10. Troubleshooting
 
-The normal error shape is **What happened / Why / Next**. It avoids a
+A simple error shows **Error** and **Next** lines. When an online service is
+involved, the message adds **What happened / Why / Next**. Either way it avoids a
 **traceback**, the programmer's long record of a failure. F2 shows safe error
 details inside the app. A command beginning `jevlab --verbose` includes extra safe
 error **metadata**, meaning descriptive information such as a code identifying

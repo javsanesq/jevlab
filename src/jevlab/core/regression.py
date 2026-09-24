@@ -17,7 +17,13 @@ from typesafe_sdk import Choice, Score
 
 from jevlab.core.datasets import inspect_dataset, iter_dataset
 from jevlab.core.errors import JevError
-from jevlab.core.evaluation import EvalReport, Observation, ThresholdStats, threshold_stats
+from jevlab.core.evaluation import (
+    EvalReport,
+    Observation,
+    ThresholdStats,
+    threshold_stats,
+    wilson_interval,
+)
 from jevlab.core.files import read_text
 from jevlab.core.jobs import BatchService
 from jevlab.core.models import StrictModel, Template
@@ -233,22 +239,17 @@ class RegressionReport(StrictModel):
     )
 
 
-def compare_snapshots(
-    baseline: EvalSnapshot,
-    candidate: EvalSnapshot,
-    *,
-    max_regressions: int = 0,
-    min_accuracy: float | None = None,
-) -> RegressionReport:
-    if max_regressions < 0 or (min_accuracy is not None and not 0 <= min_accuracy <= 1):
-        raise ValueError("Quality limits require nonnegative regressions and accuracy from 0 to 1.")
-    if baseline.case_hashes != candidate.case_hashes:
-        raise JevError(
-            "unpaired_dataset",
-            "The evaluations do not contain identical case IDs, states and labels.",
-            "Evaluate both designs on the same cases; do not compare unrelated datasets.",
-        )
-    a, b = baseline.template.questions, candidate.template.questions
+def case_fingerprints(path: Path, template: Template) -> dict[str, str]:
+    """Hash each labeled case exactly as a snapshot would, without calling Jev."""
+    return {
+        row.id: _hash({"state": row.state, "expected": row.expected})
+        for row in iter_dataset(path, template, require_labels=True)
+    }
+
+
+def require_comparable(baseline: Template, candidate: Template) -> None:
+    """Paired comparison needs the same question IDs, types and label spaces."""
+    a, b = baseline.questions, candidate.questions
     compatible = set(a) == set(b)
     for name in a.keys() & b.keys():
         left_question, right_question = a[name], b[name]
@@ -264,6 +265,115 @@ def compare_snapshots(
             "Keep matching question IDs, Choice labels and Score level counts "
             "for a paired comparison.",
         )
+
+
+def require_paired_cases(baseline: EvalSnapshot, path: Path, template: Template) -> None:
+    """Reject an unpaired dataset or design before any paid call is made."""
+    require_comparable(baseline.template, template)
+    if case_fingerprints(path, template) != baseline.case_hashes:
+        raise JevError(
+            "unpaired_dataset",
+            "These cases differ from the baseline's case IDs, states or labels.",
+            "Check against the dataset the baseline was made from, or save a new baseline "
+            "with --save-baseline. No API call was made.",
+        )
+
+
+class QuestionAccuracy(StrictModel):
+    correct: int
+    total: int
+    accuracy: float
+    accuracy_interval: tuple[float, float] | None = None
+
+
+class CheckReport(StrictModel):
+    """One CI-friendly verdict: accuracy limits and, with a baseline, paired regressions."""
+
+    schema_version: Literal[1] = 1
+    kind: Literal["jevlab_check"] = "jevlab_check"
+    job_id: str
+    template_hash: str
+    dataset_sha256: str
+    resolved_models: dict[str, int]
+    per_question: dict[str, QuestionAccuracy]
+    comparison: "RegressionReport | None" = None
+    min_accuracy: float | None
+    max_regressions: int
+    passed: bool
+    failures: list[str]
+    note: str = (
+        "Accuracy counts failed or missing answers as incorrect. With a baseline, a regression "
+        "is a previously correct case/question pair that is now wrong or unanswered. "
+        "Intervals are 95% Wilson score intervals. Evidence on these cases, not a guarantee."
+    )
+
+
+def check_evaluation(
+    candidate: EvalSnapshot,
+    baseline: EvalSnapshot | None = None,
+    *,
+    max_regressions: int = 0,
+    min_accuracy: float | None = None,
+) -> CheckReport:
+    """Apply CI quality limits to a finished evaluation, offline."""
+    comparison = (
+        compare_snapshots(
+            baseline, candidate, max_regressions=max_regressions, min_accuracy=min_accuracy
+        )
+        if baseline is not None
+        else None
+    )
+    failures = list(comparison.failures) if comparison else []
+    if comparison is None:
+        for name, metrics in candidate.evaluation.per_question.items():
+            if min_accuracy is not None and metrics.accuracy < min_accuracy:
+                failures.append(
+                    f"{name}: accuracy {metrics.accuracy:.2%} is below {min_accuracy:.2%}."
+                )
+        if (
+            candidate.status != "completed"
+            or candidate.evaluation.succeeded_runs != candidate.evaluation.rows
+        ):
+            failures.append("The evaluation has incomplete or failed calls; resolve them first.")
+    return CheckReport(
+        job_id=candidate.job_id,
+        template_hash=candidate.template_hash,
+        dataset_sha256=candidate.dataset_sha256,
+        resolved_models=candidate.evaluation.resolved_models,
+        per_question={
+            name: QuestionAccuracy(
+                correct=metrics.correct,
+                total=metrics.total,
+                accuracy=metrics.accuracy,
+                accuracy_interval=wilson_interval(metrics.correct, metrics.total),
+            )
+            for name, metrics in candidate.evaluation.per_question.items()
+        },
+        comparison=comparison,
+        min_accuracy=min_accuracy,
+        max_regressions=max_regressions,
+        passed=not failures,
+        failures=failures,
+    )
+
+
+def compare_snapshots(
+    baseline: EvalSnapshot,
+    candidate: EvalSnapshot,
+    *,
+    max_regressions: int = 0,
+    min_accuracy: float | None = None,
+) -> RegressionReport:
+    if max_regressions < 0 or (min_accuracy is not None and not 0 <= min_accuracy <= 1):
+        raise ValueError("Quality limits require nonnegative regressions and accuracy from 0 to 1.")
+    if baseline.case_hashes != candidate.case_hashes:
+        raise JevError(
+            "unpaired_dataset",
+            "The evaluations do not contain identical case IDs, states and labels.",
+            "Evaluate both designs on the same cases; do not compare unrelated datasets.",
+        )
+    require_comparable(baseline.template, candidate.template)
+    a = baseline.template.questions
     changes: list[CaseChange] = []
     questions: dict[str, QuestionChange] = {}
     failures: list[str] = []
@@ -454,3 +564,6 @@ def verify_policy(
         min_accuracy=min_accuracy,
         min_coverage=min_coverage,
     )
+
+
+CheckReport.model_rebuild()

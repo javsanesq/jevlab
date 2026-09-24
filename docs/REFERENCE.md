@@ -48,7 +48,14 @@ per-template totals across all retained runs, separate from the filtered list.
 | 2 | Invalid arguments, input, configuration, or local storage |
 | 3 | Missing credential or unavailable protected storage |
 | 4 | API, network, timeout, or response-validation failure |
+| 5 | A quality check failed (`eval check`, `eval compare`, `eval verify`) |
 | 130 | Interrupted CLI command |
+
+`--state FILE` sends one case; `.jsonl` and `.csv` files are rejected there so a
+dataset is not sent as a single state by mistake (use `batch` or `eval run`).
+When a JSON-format template receives text that is not JSON, the error shows the
+template's state description and example. Human errors print `Error:` and
+`Next:`; errors with a specific external cause add **What happened / Why / Next**.
 
 Failures after run creation include a `run_id` for inspection. No API error is
 silently replaced with a successful judgment. Retryable failures include a
@@ -139,7 +146,8 @@ thresholds remain local metadata; only state, model, and questions are sent.
 | ? / F1 | Help; use F1 while typing in a field |
 | Ctrl+Q | Quit, checking unsaved drafts |
 
-The dark theme uses grayscale and a cyan accent. `NO_COLOR` is respected.
+The dark theme uses grayscale, a cyan accent, amber warnings and red errors.
+`NO_COLOR` is respected.
 A terminal of at least 80 columns by 24 rows is supported. Longer forms and results scroll.
 
 ## Storage, costs, and privacy
@@ -160,9 +168,11 @@ by the application. The app creates no persistent payload logs.
 
 New templates default to **jev-1.13.0**. Aliases are accepted, and runs retain both
 requested and returned model IDs. The verified published rate is **$0.042 per
-million input tokens, output free**, dated 2026-09-20. Cost is an estimate based on
-reported usage and a saved rate snapshot, not a billing receipt. Unknown usage
-or unknown model pricing stays unknown. Totals count unknown-cost runs separately.
+million input tokens, output free**, dated 2026-09-20. Estimates for `jev-latest`
+use the rate of the version it resolved to on that date (`priced_as` in the saved
+snapshot); recorded runs are priced by the model the API returns. Cost is an
+estimate based on reported usage and a saved rate snapshot, not a billing receipt.
+Unknown usage or unknown model pricing stays unknown. Totals count unknown-cost runs separately.
 Latency measures the complete SDK call, including retries, excluding credential lookup.
 Comparison timings also include the brief wait to register both linked history rows.
 
@@ -174,6 +184,13 @@ timeout reports that no API request was sent. Configure request limits with
 Comparisons perform one bounded shared key lookup before the two per-call
 deadlines. Doctor's preliminary credential inventory is also bounded; its online
 models check then uses the configured request deadline separately.
+Requests go to `https://api.typesafe.ai` unless you set another API root with
+`jevlab config --set base_url=https://…`, for example a proxy your organization
+operates. Only `https://` roots are accepted (plain `http://` only for localhost),
+without credentials, query strings or fragments. The SDK's `TYPESAFE_BASE_URL`
+environment variable is deliberately ignored so an inherited variable cannot
+send your key elsewhere. `jevlab doctor` shows a custom endpoint.
+
 Cancellation cannot establish whether the server completed or billed a request;
 interrupted/failed calls retain that uncertainty. A hard process kill can leave
 a pending record. Context counts use a character-based approximation; the server
@@ -216,7 +233,7 @@ Try the three-case synthetic fixture shipped with the source:
 cd ~/jevlab
 jevlab datasets import examples/support-eval.jsonl --template support-triage --json
 jevlab eval plan support-triage examples/support-eval.jsonl --json
-jevlab eval run support-triage examples/support-eval.jsonl --concurrency 4 --rate 2 --json
+jevlab eval run support-triage examples/support-eval.jsonl --json
 jevlab eval --json
 jevlab eval show JOB_ID --json
 ```
@@ -247,15 +264,29 @@ rows fail validation before calls begin.
 {"id":"ticket-1","state":{"ticket":{"message":"Please refund the duplicate charge."}},"expected":{"route":"billing","impact":0,"refund_requested":true}}
 ```
 
-Choice labels exactly match option keys. Score labels are zero-based integer
-levels. Noul labels are JSON booleans. CSV uses `state`, optional `id`, and
-`expected.<question>` columns; when the template expects JSON, the state cell
-contains escaped JSON. Noul CSV labels are lowercase `true` / `false`:
+Choice labels exactly match option keys (case-sensitive; errors list the valid
+options). Score labels are zero-based integer levels. Noul labels are JSON
+booleans. CSV uses `state`, optional `id`, and `expected.<question>` columns; when
+the template expects JSON, the state cell contains escaped JSON. Noul CSV labels
+are `true` / `false` in any letter case:
 
 ```csv
 id,state,expected.route,expected.impact,expected.refund_requested
 ticket-1,"{""ticket"":{""message"":""Please refund the duplicate charge.""}}",billing,0,true
 ```
+
+For a JSON-format template, CSV can instead supply the state as ordinary columns.
+Every column other than `id` and `expected.<question>` becomes a state field, and
+dotted names nest, so this file produces `{"ticket": {"message": …, "plan": …}}`:
+
+```csv
+id,ticket.message,ticket.plan,expected.route
+ticket-1,Please refund the duplicate charge.,pro,billing
+```
+
+Column values stay text. Conflicting names (`ticket` and `ticket.message`), empty
+name segments, and columns that look like misspelled labels (`Expected.route`,
+`expected_route`) are rejected. A text-format template needs a single `state` column.
 
 Imports stream source rows and currently accept up to **10,000 rows, 100 MiB per
 file, and 1 MiB per row**. Split larger files. Evals retain compact observations
@@ -280,6 +311,10 @@ tokens, estimated costs, latency mean/p50/p95, and returned model versions.
   Score (range 0–2), and binary error for Noul (0–1). Calibration, Brier, and Score
   MAE exclude failed/missing answers. Worst misses are sorted by predicted-class
   probability; both probability and SDK confidence are shown.
+- Accuracy and automated accuracy carry a **95% Wilson score interval**
+  (`accuracy_interval` in JSON). On 20 cases, 90% observed accuracy is compatible
+  with roughly 70–97%. The interval treats cases as independent samples; it does
+  not cover drift between your eval set and live traffic.
 
 Choose **Tune thresholds** in an eval report. Tab to a slider and use Left/Right
 for 0.01 steps, Home/End for endpoints. Choice/Score use their SDK confidence;
@@ -289,10 +324,19 @@ when no case is automated. Saving writes only adjusted gates into the YAML;
 changed question/model designs must be evaluated again.
 
 ```sh
+jevlab eval tune JOB_ID route                                  # coverage/accuracy curve
+jevlab eval tune JOB_ID route --target-accuracy 0.95           # recommend a gate
+jevlab eval tune JOB_ID route --target-accuracy 0.95 --conservative --save
 jevlab eval tune JOB_ID route --threshold 0.90 --json
 jevlab eval tune JOB_ID refund_requested --no-below 0.10 --yes-above 0.90 --json
-jevlab eval tune JOB_ID route --threshold 0.90 --save --json
 ```
+
+`--target-accuracy` tries each observed confidence as a cutoff and recommends the
+one that automates the most cases while automated accuracy meets the target.
+`--conservative` requires the interval's lower bound, not the observed rate, to
+meet it, so small samples rarely qualify. Noul chooses its yes and no cutoffs
+separately, each meeting the target on its own side. When nothing qualifies, no
+gate is recommended and every case stays in review.
 
 Thresholds fitted on an eval describe that dataset. Check a separate holdout
 before relying on them. Pin a model version when comparing designs or tuning
@@ -302,7 +346,7 @@ returned versions so mixed-model jobs are visible.
 ### Run and resume a batch
 
 ```sh
-jevlab batch support-triage --input examples/support-eval.jsonl --output ~/Downloads/jevlab-results.jsonl --concurrency 4 --rate 2 --json
+jevlab batch support-triage --input examples/support-eval.jsonl --output ~/Downloads/jevlab-results.jsonl --json
 jevlab batch --json
 jevlab batch --resume JOB_ID --json
 jevlab batch --resume JOB_ID --retry-failed --json
@@ -325,19 +369,24 @@ Authentication errors stop scheduling more work; completed rows stay saved.
 Evals also accept `--resume`, `--retry-failed`, and `--retry-unknown` with the
 original template name and dataset arguments.
 
-The default is four workers and two new logical calls/second. SDK retries use the
-SDK's backoff and may add requests beyond that start rate. This is not a token-
-rate limiter. Cost previews use character estimates, exclude unknown overhead/
-retry charges, and are **not spending caps**. Interactive batch and eval each
-ask before starting, including small jobs. The TUI offers a **Don't ask again**
-checkbox; the interactive CLI asks whether to remember an accepted choice.
-The preferences are separate and can be restored in Settings or with
-`jevlab config --set confirm_batch_cost=true` and
-`jevlab config --set confirm_eval_cost=true`. `--yes` skips a prompt for one command
-without changing preferences. JSON/noninteractive jobs still require explicit
-`--yes` above `confirm_cost_usd` (default $1.00), or for an unknown model price;
-interactive preferences do not waive this scripting safeguard. Failed jobs return a saved
-report with `ok: false` and exit code 4; inspecting that report later succeeds.
+The default is eight workers and ten new logical calls/second. A job looks up
+the API key once and reuses one pooled HTTPS client for every row. After a
+provider rate-limit response (HTTP 429), the job halves its start rate and waits
+at least the provider's retry delay; the rejected row is marked failed and can be
+repeated with `--retry-failed`. SDK retries use the SDK's backoff and may add
+requests beyond the start rate. This is not a token-rate limiter. Lower
+`--concurrency` or `--rate` if your account's limits are smaller.
+
+Cost previews use character estimates, exclude unknown overhead/retry charges,
+and are **not spending caps**. One rule covers every paid workflow (batch, eval,
+compare, lesson grading, coach requests and the local server): a known estimate
+at or below `confirm_cost_usd` (default $1.00) starts with a one-line notice; a
+larger estimate, or a model without a verified price, needs confirmation in a
+terminal or `--yes` in scripts. `--yes` applies to one command only. Change the
+budget with `jevlab config --set confirm_cost_usd=5` or in Settings. At the
+published $0.042 per million input tokens, a 1,000-case evaluation of 500-token
+states is about $0.02. Failed jobs return a saved report with `ok: false` and exit
+code 4; inspecting that report later succeeds.
 
 ### Compare designs or model versions
 
@@ -385,6 +434,9 @@ else:
     print("Send to human review")
 ```
 
+For services that make many calls, pass one long-lived SDK client with
+`evaluate(state, client=...)` or `await aevaluate(state, client=...)` to reuse its
+connection pool; see [integrations](INTEGRATIONS.md#reuse-one-client-in-a-service).
 LangChain exports a Runnable; Pydantic AI exports a Tool for an existing agent.
 Both wrap the same SDK call and response validation. See
 [tested versions, installation, and complete examples](INTEGRATIONS.md).
@@ -516,14 +568,16 @@ with urlopen(request, timeout=60) as response:
 print(result["data"]["routing"])
 ```
 
-This POST makes a billable call; health/listing do not. A request with unknown or
-above-limit estimated cost returns HTTP 409 before dispatch. After reviewing that
+This POST makes a billable call; health/listing do not. A request whose estimated
+cost is unknown or above `confirm_cost_usd` returns HTTP 409 before dispatch. After reviewing that
 estimate, explicitly send `"authorize_cost": true` alongside `state` to proceed.
 Cost estimates remain approximate, not hard spending caps. Requests can only use
 saved templates; they cannot override questions, models, or application settings.
 
-Defaults are four concurrent calls and two new call starts/second, configurable
+Defaults are eight concurrent calls and ten new call starts/second, configurable
 with `--concurrency` and `--rate`. Extra requests receive 429/503, without a queue.
+The server looks up the TypeSafe key once and reuses one connection pool; after
+fixing a missing key, the next request retries the lookup.
 Bodies are capped at 2 MB and ten seconds to upload. The API rejects browser Origin
 headers and unexpected Host headers; it is intended for local backend clients,
 not public hosting or direct browser integration. Access and wire logs are disabled.
@@ -557,6 +611,8 @@ No key needs to be entered again merely because the application was renamed.
 
 Named templates and existing exit codes remain supported. Run, edit, export, eval,
 and batch also accept explicit project YAML paths. See the [project workflow](PROJECTS.md)
-for portable baselines, paired comparisons, and frozen-threshold verification.
-The new `eval compare` and `eval verify` commands use exit 5 for failed quality
-checks; their version-1 JSON envelopes retain the report under `data`.
+for CI checks, portable baselines, paired comparisons, and frozen-threshold
+verification. `eval check`, `eval compare` and `eval verify` use exit 5 for failed
+quality checks; their version-1 JSON envelopes retain the report under `data`.
+`eval check` exits 4 instead when calls did not complete, so an outage is not
+reported as a quality regression.

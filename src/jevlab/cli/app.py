@@ -19,6 +19,8 @@ from jevlab.cli.common import (
     emit_error,
     guarded,
     launch,
+    parse_state_for,
+    read_state_payload,
     stderr,
     verbose_errors,
     workbench,
@@ -34,9 +36,9 @@ from jevlab.core.credentials import Credentials, Provider
 from jevlab.core.doctor import inspect, online
 from jevlab.core.errors import JevError
 from jevlab.core.files import read_text
-from jevlab.core.models import Settings
+from jevlab.core.models import DEFAULT_BASE_URL, Settings
 from jevlab.core.pricing import format_cost
-from jevlab.core.service import Workbench, parse_state
+from jevlab.core.service import Workbench
 from jevlab.core.spending import SpendEstimate
 from jevlab.core.templates import (
     context_estimate,
@@ -56,34 +58,14 @@ templates_app = typer.Typer(invoke_without_command=True, help="Browse, create, a
 history_app = typer.Typer(
     invoke_without_command=True, help="Inspect recorded runs and rerun exact designs."
 )
-app.add_typer(templates_app, name="templates", rich_help_panel="Workflow")
-app.add_typer(history_app, name="history", rich_help_panel="Workflow")
-app.add_typer(learn_app, name="learn", rich_help_panel="Learning and help")
-app.add_typer(library_app, name="library", rich_help_panel="Learning and help")
-app.add_typer(coach_app, name="coach", rich_help_panel="Learning and help")
-app.add_typer(datasets_app, name="datasets", rich_help_panel="Tools")
-app.add_typer(eval_app, name="eval", rich_help_panel="Workflow")
-app.command(
-    "batch", help="Run a dataset with concurrency and resumable progress.", rich_help_panel="Tools"
-)(batch)
-app.command(
-    "compare",
-    help="Compare two designs or model versions on one state.",
-    rich_help_panel="Workflow",
-)(compare_command)
-app.command(
-    "export",
-    help="Generate a standalone SDK module from a saved template.",
-    rich_help_panel="Workflow",
-)(export)
-app.command(
-    "serve", help="Expose saved templates through a local HTTP API.", rich_help_panel="Tools"
-)(serve)
-app.command("clean", help="Preview or apply history retention limits.", rich_help_panel="Tools")(
-    clean
-)
-app.command("guide", rich_help_panel="Learning and help")(guide)
-register_guidance(app)
+DEVELOP, OPERATE, LEARN = "Develop and evaluate", "Run and operate", "Learn and explore"
+app.add_typer(templates_app, name="templates", rich_help_panel=DEVELOP)
+app.add_typer(eval_app, name="eval", rich_help_panel=DEVELOP)
+app.add_typer(history_app, name="history", rich_help_panel=DEVELOP)
+app.add_typer(datasets_app, name="datasets", rich_help_panel=OPERATE)
+app.add_typer(learn_app, name="learn", rich_help_panel=LEARN)
+app.add_typer(library_app, name="library", rich_help_panel=LEARN)
+app.add_typer(coach_app, name="coach", rich_help_panel=LEARN)
 
 
 @app.callback(invoke_without_command=True)
@@ -102,12 +84,12 @@ def root(
     if version:
         emit({"version": __version__}) if json_output else typer.echo(f"jevlab {__version__}")
     elif json_output:
-        emit({"version": __version__, "phase": 4, "data_directory": str(data_directory())})
+        emit({"version": __version__, "data_directory": str(data_directory())})
     else:
         launch(workbench())
 
 
-@app.command(help="Get Jev answers for a template and input state.", rich_help_panel="Workflow")
+@app.command(help="Get Jev answers for a template and input state.", rich_help_panel=DEVELOP)
 @guarded
 def run(
     template: Annotated[str, typer.Argument(help="Saved template name or project YAML path.")],
@@ -127,18 +109,9 @@ def run(
     input_format = format or design.state.format
     if input_format not in ("text", "json"):
         raise JevError("invalid_format", "Unknown state format.", "Choose text or json.")
-    payload = (
-        sys.stdin.read(2_000_001)
-        if state == "-"
-        else read_text(Path(state).expanduser())
-        if state
-        else text or ""
+    parsed = parse_state_for(
+        design, read_state_payload(state, text, action="running"), input_format
     )
-    if len(payload.encode()) > 2_000_000:
-        raise JevError(
-            "state_too_large", "State exceeds the 2 MB import limit.", "Trim it before running."
-        )
-    parsed = parse_state(payload, input_format)
     for warning in cast(list[str], context_estimate(design, parsed)["warnings"]):
         stderr.print(Text(warning))
     result = asyncio.run(wb.run(design, parsed))
@@ -184,7 +157,9 @@ def templates(ctx: typer.Context, json_output: JsonFlag = False) -> None:
         console.print(table)
 
 
-@templates_app.command("new")
+@templates_app.command(
+    "new", help="Create a catalog template in the editor, or import one with --from."
+)
 @guarded
 def template_new(
     name: str,
@@ -209,7 +184,7 @@ def template_new(
         launch(wb, "new", name)
 
 
-@templates_app.command("edit")
+@templates_app.command("edit", help="Edit a catalog template or project YAML; --from replaces it.")
 @guarded
 def template_edit(
     name: Annotated[str, typer.Argument(help="Saved template name or project YAML path.")],
@@ -230,7 +205,7 @@ def template_edit(
         launch(wb, "edit", name)
 
 
-@templates_app.command("validate")
+@templates_app.command("validate", help="Check a YAML design without saving or calling Jev.")
 @guarded
 def template_validate(path: Path, json_output: JsonFlag = False) -> None:
     design = parse_template(read_text(path))
@@ -272,7 +247,10 @@ def history(
                 result.started_at[:19],
                 Text(result.template_name),
                 result.status,
-                Text(str(result.latency_ms or 0), justify="right"),
+                Text(
+                    str(result.latency_ms) if result.latency_ms is not None else "—",
+                    justify="right",
+                ),
                 Text(format_cost(result.cost_nanousd), justify="right"),
             )
         console.print(table)
@@ -281,7 +259,7 @@ def history(
         )
 
 
-@history_app.command("show")
+@history_app.command("show", help="Show one saved run: answers, routing, usage and errors.")
 @guarded
 def history_show(run_id: str, json_output: JsonFlag = False) -> None:
     result = workbench().storage.get(run_id)
@@ -290,7 +268,7 @@ def history_show(run_id: str, json_output: JsonFlag = False) -> None:
     )
 
 
-@history_app.command("rerun")
+@history_app.command("rerun", help="Repeat a saved run with its exact design and state (one call).")
 @guarded
 def history_rerun(run_id: str, json_output: JsonFlag = False) -> None:
     wb = workbench()
@@ -322,7 +300,7 @@ def change_settings(wb: Workbench, values: dict[str, object]) -> None:
     wb.update_settings(updated)
 
 
-@app.command(help="Configure credentials, models, and local preferences.", rich_help_panel="Tools")
+@app.command(help="Configure credentials, models, and local preferences.", rich_help_panel=OPERATE)
 @guarded
 def config(
     json_output: JsonFlag = False,
@@ -502,6 +480,11 @@ def display_doctor(report: dict[str, object]) -> None:
             f"Space used: {disk_bytes / 1_000_000:.2f} MB\n"
             f"History retention: {retention['days']} days, with a size limit\n"
             f"Local files: {report['data_directory']}"
+            + (
+                f"\nTypeSafe endpoint: {report['endpoint']} (custom)"
+                if report.get("endpoint") != DEFAULT_BASE_URL
+                else ""
+            )
         )
     )
     display_credentials(cast(dict[str, object], report["credentials"]))
@@ -552,12 +535,14 @@ def display_doctor(report: dict[str, object]) -> None:
 
 
 @app.command(
-    help="Check installation and credentials; live checks are opt-in.", rich_help_panel="Tools"
+    help="Check installation and credentials; live checks are opt-in.", rich_help_panel=OPERATE
 )
 @guarded
 def doctor(
     json_output: JsonFlag = False,
-    online_check: Annotated[bool, typer.Option("--online")] = False,
+    online_check: Annotated[
+        bool, typer.Option("--online", help="Also list available models with your key; no charge.")
+    ] = False,
     coach_check: Annotated[
         bool,
         typer.Option("--coach", help="Check both coaches, including cost-confirmed live calls."),
@@ -592,6 +577,7 @@ def doctor(
                 "Check your TypeSafe connection by reading the available model list.",
                 "This sends no decision request and is not expected to incur a model charge.",
             ),
+            settings=wb.settings,
             machine=json_output,
         )
         report["models"] = asyncio.run(online(wb))
@@ -602,6 +588,28 @@ def doctor(
         display_doctor(report)
     else:
         console.print(Text(json.dumps(report, indent=2)))
+
+
+# Registered after run/config/doctor so each help panel lists the everyday command first.
+app.command(
+    "compare", help="Compare two designs or model versions on one state.", rich_help_panel=DEVELOP
+)(compare_command)
+app.command(
+    "export",
+    help="Generate a standalone SDK module from a saved template.",
+    rich_help_panel=DEVELOP,
+)(export)
+app.command(
+    "batch", help="Run a dataset with concurrency and resumable progress.", rich_help_panel=OPERATE
+)(batch)
+app.command(
+    "serve", help="Expose saved templates through a local HTTP API.", rich_help_panel=OPERATE
+)(serve)
+app.command("clean", help="Preview or apply history retention limits.", rich_help_panel=OPERATE)(
+    clean
+)
+register_guidance(app, panel=LEARN)
+app.command("guide", rich_help_panel=LEARN)(guide)
 
 
 def main() -> None:

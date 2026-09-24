@@ -442,3 +442,27 @@ def test_export_rejects_invalid_target_and_revalidates_template(
     invalid = design.model_copy(update={"questions": {}})
     with pytest.raises(ValueError):
         export_template(invalid)
+
+
+async def test_export_reuses_a_supplied_client_without_closing_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, design: Template
+) -> None:
+    module = load_export(tmp_path, monkeypatch, design)
+    requests: list[dict[str, Any]] = []
+    sync_client = TypeSafeClient(
+        api_key="offline-export-secret", transport=sdk_transport(RESPONSE, requests)
+    )
+    first = module.evaluate({"ticket": "one"}, client=sync_client)
+    second = module.evaluate({"ticket": "two"}, client=sync_client, model="jev-latest")
+    assert first.routing["route"].disposition == "automate" and second.response.model
+    assert [request["model"] for request in requests] == [design.model, "jev-latest"]
+    sync_client.close()  # Still open after both calls: the caller owns its lifetime.
+
+    async_requests: list[dict[str, Any]] = []
+    async with AsyncTypeSafeClient(
+        api_key="offline-export-secret", transport=sdk_transport(RESPONSE, async_requests)
+    ) as async_client:
+        for state in ({"ticket": "a"}, {"ticket": "b"}):
+            result = await module.aevaluate(state, client=async_client)
+            assert result.routing["refund_requested"].value is True
+    assert len(async_requests) == 2

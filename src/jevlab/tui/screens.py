@@ -13,7 +13,6 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import (
     Button,
-    Checkbox,
     Collapsible,
     DataTable,
     Footer,
@@ -671,7 +670,7 @@ class History(WorkbenchScreen):
                 Text(run.template_name),
                 Text(run.resolved_model or run.requested_model),
                 run.status,
-                Text(str(run.latency_ms or 0), justify="right"),
+                Text(str(run.latency_ms) if run.latency_ms is not None else "—", justify="right"),
                 Text(format_cost(run.cost_nanousd), justify="right"),
                 key=run.id,
             )
@@ -804,8 +803,7 @@ class SettingsScreen(WorkbenchScreen):
             str(self.query_one("#ui-mode", Select).value),
             str(self.query_one("#credential-mode", Select).value),
             str(self.query_one("#coach-provider", Select).value),
-            str(self.query_one("#confirm-batch-cost", Checkbox).value),
-            str(self.query_one("#confirm-eval-cost", Checkbox).value),
+            self.query_one("#confirm-cost", Input).value,
         )
 
     def request_close(self, callback: Callable[[], object]) -> None:
@@ -875,23 +873,13 @@ class SettingsScreen(WorkbenchScreen):
             yield Static("", id="config-model-validation", markup=False)
             yield Button("Save settings", id="save-settings", variant="primary")
             yield Field(
-                Checkbox(
-                    "Ask before batch runs",
-                    value=config.confirm_batch_cost,
-                    id="confirm-batch-cost",
-                ),
-                "Batch spending confirmation",
-                "Show a price estimate and ask before processing a file. Single runs start "
-                "immediately.",
-                "Leave checked for your first 5,000-row batch.",
-            )
-            yield Field(
-                Checkbox(
-                    "Ask before evaluations", value=config.confirm_eval_cost, id="confirm-eval-cost"
-                ),
-                "Evaluation spending confirmation",
-                "Ask before testing many labeled cases. This preference is separate from batches.",
-                "Keep checked while experimenting with dataset sizes.",
+                Input(f"{config.confirm_cost_usd:g}", id="confirm-cost"),
+                "Confirmation budget (US dollars)",
+                "Batches, evaluations, comparisons, lessons and coach requests estimated at or "
+                "below this amount start without asking. Unknown prices always ask. Single "
+                "runs start immediately.",
+                "1",
+                validator=numeric("Confirmation budget", 0),
             )
             yield Button("More options", id="settings-options", classes="options-toggle")
             with Vertical(classes="advanced settings-advanced"):
@@ -1011,8 +999,7 @@ class SettingsScreen(WorkbenchScreen):
             "coach_provider": self.query_one("#coach-provider", Select).value,
             "anthropic_model": self.query_one("#coach-anthropic-model", Input).value,
             "openai_model": self.query_one("#coach-openai-model", Input).value,
-            "confirm_batch_cost": self.query_one("#confirm-batch-cost", Checkbox).value,
-            "confirm_eval_cost": self.query_one("#confirm-eval-cost", Checkbox).value,
+            "confirm_cost_usd": self.query_one("#confirm-cost", Input).value,
         }
         try:
             self.wb.update_settings(self.wb.settings.with_updates(values))

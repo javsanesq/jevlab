@@ -156,10 +156,7 @@ async def test_compare_tui_same_state(wb: Workbench, monkeypatch: pytest.MonkeyP
     async with app.run_test(size=(130, 48)) as pilot:
         assert isinstance(app.screen, CompareScreen)
         app.screen.query_one(TextArea).load_text('{"ticket":"refund please"}')
-        app.screen.begin()
-        await pilot.pause()
-        assert isinstance(app.screen, Confirm)
-        await pilot.click("#discard")
+        app.screen.begin()  # Two small calls stay within the default budget.
         await app.workers.wait_for_complete()
         await pilot.pause()
         assert isinstance(app.screen, CompareResultScreen)

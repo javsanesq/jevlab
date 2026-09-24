@@ -3,6 +3,7 @@
 import asyncio
 import json
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 from time import monotonic, perf_counter
 from typing import cast
@@ -12,6 +13,7 @@ from typesafe_sdk import JSONContent
 from typesafe_sdk import __version__ as sdk_version
 
 from jevlab.core.client import (
+    Evaluation,
     Evaluator,
     SDKClient,
     raw_error_body,
@@ -43,6 +45,50 @@ def parse_state(text: str, format: str) -> JSONContent:
             "State must be nonempty text or valid JSON text/object/array.",
             "Correct the state or select the matching input format.",
         ) from None
+
+
+class SharedEvaluator:
+    """One credential lookup and one pooled SDK client shared by many calls.
+
+    Jobs and the local server reuse connections instead of repeating a key lookup and
+    TLS handshake per call. Workbench.run connects before timing a call, so a slow key
+    lookup is reported as a credential problem with no request sent.
+    """
+
+    def __init__(self, settings: Settings, *, remember_failure: bool = True) -> None:
+        self.settings = settings
+        self.remember_failure = remember_failure
+        self._client: SDKClient | None = None
+        self._failure: JevError | None = None
+        self._lock = asyncio.Lock()
+
+    async def connect(self) -> SDKClient:
+        """Resolve the key once (bounded like a single run) and return the pooled client."""
+        async with self._lock:
+            if self._client is not None:
+                return self._client
+            if self._failure is not None:
+                # Each run receives its own copy; callers attach their run ID to it.
+                raise replace(self._failure)
+            try:
+                key = await require_credentials(
+                    Credentials(self.settings.credential_mode),
+                    timeout_seconds=min(5.0, self.settings.deadline_seconds),
+                )
+                self._client = SDKClient(key, self.settings)
+            except JevError as error:
+                if self.remember_failure:
+                    self._failure = replace(error)
+                raise
+            return self._client
+
+    async def evaluate(self, template: Template, state: JSONContent) -> Evaluation:
+        return await (await self.connect()).evaluate(template, state)
+
+    async def aclose(self) -> None:
+        client, self._client = self._client, None
+        if client is not None:
+            await client.aclose()
 
 
 class Workbench:
@@ -104,15 +150,22 @@ class Workbench:
         started: float | None = None
         try:
             deadline = asyncio.get_running_loop().time() + self.settings.deadline_seconds
-            if evaluator is None:
+            owned: SDKClient | None = None
+            if isinstance(evaluator, SharedEvaluator):
+                evaluator = await evaluator.connect()
+            elif evaluator is None:
                 credentials = Credentials(self.settings.credential_mode)
                 key = await require_credentials(
                     credentials, timeout_seconds=min(5.0, self.settings.deadline_seconds)
                 )
-                evaluator = SDKClient(key, self.settings)
+                evaluator = owned = SDKClient(key, self.settings)
             started = perf_counter()
-            async with asyncio.timeout_at(deadline):
-                evaluation = await evaluator.evaluate(template, state)
+            try:
+                async with asyncio.timeout_at(deadline):
+                    evaluation = await evaluator.evaluate(template, state)
+            finally:
+                if owned is not None:
+                    await owned.aclose()
             response = evaluation.response
             run.response = evaluation.raw
             run.request_id = evaluation.request_id

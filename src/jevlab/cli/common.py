@@ -7,16 +7,20 @@ import sys
 from collections.abc import Callable
 from contextvars import ContextVar
 from functools import wraps
+from pathlib import Path
 from typing import Annotated, ParamSpec, TypeVar
 
 import typer
 from pydantic import ValidationError
 from rich.console import Console
 from rich.text import Text
+from typesafe_sdk import JSONContent
 
 from jevlab.core.config import data_directory
 from jevlab.core.errors import JevError
-from jevlab.core.service import Workbench
+from jevlab.core.files import read_text
+from jevlab.core.models import Template
+from jevlab.core.service import Workbench, parse_state
 from jevlab.core.templates import validation_message
 from jevlab.presentation import human_error
 
@@ -142,3 +146,51 @@ def launch(wb: Workbench, screen: str = "home", name: str | None = None) -> None
             "terminal_required", "The TUI needs an interactive terminal.", "Use --json for scripts."
         )
     JevApp(wb, start=screen, template_name=name).run()
+
+
+DATASET_SUFFIXES = (".jsonl", ".csv")
+
+
+def read_state_payload(state: str | None, text: str | None, *, action: str) -> str:
+    """Read exactly one state from --state FILE, --state - (stdin), or --text."""
+    if state and state != "-" and Path(state).suffix.lower() in DATASET_SUFFIXES:
+        raise JevError(
+            "state_is_dataset",
+            "--state reads one case, but this file looks like a dataset of many cases.",
+            "Use jevlab batch TEMPLATE --input FILE --output results.jsonl, or jevlab eval run "
+            "TEMPLATE FILE for labeled cases. To send the whole file as one state, use "
+            "--state - < FILE.",
+        )
+    payload = (
+        sys.stdin.read(2_000_001)
+        if state == "-"
+        else read_text(Path(state).expanduser())
+        if state
+        else text or ""
+    )
+    if len(payload.encode()) > 2_000_000:
+        raise JevError(
+            "state_too_large", "State exceeds the 2 MB import limit.", f"Trim it before {action}."
+        )
+    return payload
+
+
+def parse_state_for(design: Template, payload: str, input_format: str) -> JSONContent:
+    """Parse one state, explaining what a JSON-format design expects when parsing fails."""
+    try:
+        return parse_state(payload, input_format)
+    except JevError as error:
+        if error.code != "invalid_state" or input_format != "json":
+            raise
+        example = design.state.example
+        sample = (
+            json.dumps(example, ensure_ascii=False) if isinstance(example, (dict, list)) else None
+        )
+        if sample and len(sample) > 160:
+            sample = sample[:157] + "…"
+        raise JevError(
+            "invalid_state",
+            f"{design.name} expects JSON state: {design.state.description}",
+            (f"Pass JSON such as {sample}, " if sample else "Pass a JSON object or array, ")
+            + "or add --format text to send plain text instead.",
+        ) from None

@@ -133,7 +133,7 @@ def test_reject_ambiguous_or_invalid_jsonl(
 @pytest.mark.parametrize(
     "text",
     [
-        'state,expected.refund_requested\n"{""ticket"":""case""}",TRUE\n',
+        'state,expected.refund_requested\n"{""ticket"":""case""}",yes\n',
         'state,expected.impact\n"{""ticket"":""case""}",0.0\n',
         'state,expected.unknown\n"{}",\n',
         'state,state\n"{}","{}"\n',

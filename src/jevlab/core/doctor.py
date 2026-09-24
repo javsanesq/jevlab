@@ -67,6 +67,7 @@ def inspect(workbench: Workbench) -> dict[str, object]:
             "maintenance_error": workbench.maintenance_error,
         },
         "privacy": PRIVACY,
+        "endpoint": workbench.settings.base_url,
         "network_checked": False,
         "coach": {
             "provider": workbench.settings.coach_provider,
@@ -93,7 +94,7 @@ async def online(workbench: Workbench) -> list[dict[str, str]]:
             asyncio.timeout_at(deadline),
             AsyncTypeSafeClient(
                 api_key=key,
-                base_url="https://api.typesafe.ai",
+                base_url=settings.base_url,
                 timeout=settings.timeout_seconds,
                 retry=RetryPolicy(max_retries=settings.max_retries),
             ) as client,

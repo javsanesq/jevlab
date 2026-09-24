@@ -74,7 +74,7 @@ def learn(ctx: typer.Context, json_output: JsonFlag = False) -> None:
             console.print(Text(f"{item.id}  {item.title}"))
 
 
-@learn_app.command("show")
+@learn_app.command("show", help="List lessons, or show one lesson's goal and cases.")
 @guarded
 def show_lesson(lesson_id: str, json_output: JsonFlag = False) -> None:
     item = lesson(lesson_id)
@@ -90,7 +90,7 @@ def show_lesson(lesson_id: str, json_output: JsonFlag = False) -> None:
     )
 
 
-@learn_app.command("start")
+@learn_app.command("start", help="Create a practice template for a lesson.")
 @guarded
 def start_lesson(lesson_id: str, name: str | None = None, json_output: JsonFlag = False) -> None:
     wb, item = workbench(), lesson(lesson_id)
@@ -110,7 +110,7 @@ def start_lesson(lesson_id: str, name: str | None = None, json_output: JsonFlag 
     )
 
 
-@learn_app.command("plan")
+@learn_app.command("plan", help="Check a practice design and estimate grading cost; no call.")
 @guarded
 def plan_lesson(
     lesson_id: str,
@@ -125,7 +125,7 @@ def plan_lesson(
     emit(plan.model_dump()) if json_output else console.print(Text(plan.model_dump_json(indent=2)))
 
 
-@learn_app.command("grade")
+@learn_app.command("grade", help="Grade a practice design against the lesson cases.")
 @guarded
 def grade_lesson(
     lesson_id: str,
@@ -145,11 +145,12 @@ def grade_lesson(
                 f"Grade your practice design with {plan.calls} live Jev decisions.",
                 plan.estimate_note
                 + (
-                    " Optional coach feedback will ask for separate confirmation after grading."
+                    " Optional coach feedback follows grading under the same budget rule."
                     if wb.settings.coach_provider != "disabled"
                     else ""
                 ),
             ),
+            settings=wb.settings,
             yes=yes,
         )
     else:
@@ -182,6 +183,7 @@ def grade_lesson(
                             "grade": report.model_dump(),
                         },
                     ),
+                    settings=wb.settings,
                     machine=json_output,
                 )
                 feedback = await Coach(wb.settings).feedback(item, design, report)
@@ -264,14 +266,14 @@ def grade_lesson(
         raise typer.Exit(4)
 
 
-@learn_app.command("progress")
+@learn_app.command("progress", help="Show saved lesson progress.")
 @guarded
 def progress(json_output: JsonFlag = False) -> None:
     data = workbench().storage.learning_progress()
     emit(data) if json_output else console.print(Text(json.dumps(data, indent=2)))
 
 
-@learn_app.command("inspect")
+@learn_app.command("inspect", help="Show one saved lesson attempt case by case.")
 @guarded
 def inspect_attempt(attempt_id: str, json_output: JsonFlag = False) -> None:
     try:
@@ -307,7 +309,7 @@ def library(ctx: typer.Context, json_output: JsonFlag = False) -> None:
             console.print(Text(f"{item.id}  {item.when_to_use}"))
 
 
-@library_app.command("show")
+@library_app.command("show", help="List bundled patterns, or show one pattern's design.")
 @guarded
 def show_pattern(pattern_id: str, json_output: JsonFlag = False) -> None:
     item = pattern(pattern_id)
@@ -320,7 +322,7 @@ def show_pattern(pattern_id: str, json_output: JsonFlag = False) -> None:
     )
 
 
-@library_app.command("fork")
+@library_app.command("fork", help="Copy a bundled pattern into your template catalog.")
 @guarded
 def fork_pattern(pattern_id: str, name: str, json_output: JsonFlag = False) -> None:
     wb = workbench()
@@ -328,7 +330,7 @@ def fork_pattern(pattern_id: str, name: str, json_output: JsonFlag = False) -> N
     emit({"path": str(path), "template": name}) if json_output else typer.echo(f"Saved {path}")
 
 
-@library_app.command("export-data")
+@library_app.command("export-data", help="Write a pattern's synthetic cases as a dataset file.")
 @guarded
 def export_pattern_dataset(
     pattern_id: str,
@@ -380,7 +382,7 @@ def display_advice(result: CoachResult, machine: bool) -> None:
     )
 
 
-@coach_app.command("design")
+@coach_app.command("design", help="Ask the optional coach to propose a design from an intent.")
 @guarded
 def design_from_intent(
     intent: str,
@@ -402,6 +404,7 @@ def design_from_intent(
                 "model": wb.settings.model,
             },
         ),
+        settings=wb.settings,
         machine=json_output,
     )
     result = asyncio.run(Coach(wb.settings).design(intent, name))
@@ -410,20 +413,21 @@ def design_from_intent(
     display_advice(result, json_output)
 
 
-@coach_app.command("critique")
+@coach_app.command("critique", help="Ask the optional coach to critique a design.")
 @guarded
 def critique_template(template: str, json_output: JsonFlag = False) -> None:
     wb = workbench()
     design = wb.templates.load_reference(template)
     confirm_spend(
         estimate_coach(wb.settings, {"template": design.model_dump(mode="json")}),
+        settings=wb.settings,
         machine=json_output,
     )
     result = asyncio.run(Coach(wb.settings).critique(design))
     display_advice(result, json_output)
 
 
-@coach_app.command("explain")
+@coach_app.command("explain", help="Ask the optional coach to explain a saved run.")
 @guarded
 def explain_result(run_id: str, json_output: JsonFlag = False) -> None:
     wb = workbench()
@@ -439,6 +443,7 @@ def explain_result(run_id: str, json_output: JsonFlag = False) -> None:
                     "response": run.response,
                 },
             ),
+            settings=wb.settings,
             machine=json_output,
         )
     result = asyncio.run(Coach(wb.settings).explain(run, design))

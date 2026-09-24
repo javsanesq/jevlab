@@ -82,4 +82,5 @@ Expect a new Python module. Existing files are never overwritten.
 [evaluate labeled examples](REFERENCE.md#evaluate-tune-batch-and-compare),
 [inspect history](REFERENCE.md#cli-and-pipes), or run `jevlab tour` for optional guidance.
 **Keys:** Ctrl+P finds actions; Ctrl+E explains a control; Esc goes back; Ctrl+Q quits.
-Batch and eval have separate spend confirmations. Estimates are not spending caps.
+Batches, evals and comparisons ask first only when the estimate is above your $1.00 confirmation budget
+(`jevlab config --set confirm_cost_usd=…`) or the price is unknown. Estimates are not spending caps.

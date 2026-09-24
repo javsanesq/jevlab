@@ -217,7 +217,7 @@ def test_comparison_stdin_and_model_override_are_real_service_calls(
             "--format",
             "text",
             "--right-model",
-            "jev-latest",
+            "jev-2.0.0",  # A version without a verified price needs --yes in scripts.
         ],
         2,
     )

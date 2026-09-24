@@ -30,7 +30,12 @@ from jevlab.core.compare import ComparisonReport, compare, comparison_plan
 from jevlab.core.errors import JevError
 from jevlab.core.evaluation import QuestionMetrics, threshold_stats
 from jevlab.core.files import read_text
-from jevlab.core.jobs import BatchService, JobReport
+from jevlab.core.jobs import (
+    DEFAULT_CONCURRENCY,
+    DEFAULT_REQUESTS_PER_SECOND,
+    BatchService,
+    JobReport,
+)
 from jevlab.core.models import ConfidenceGate, Gate, NoulGate, Template, validate_jev_model
 from jevlab.core.pricing import format_cost
 from jevlab.core.service import Workbench, parse_state
@@ -187,20 +192,20 @@ class JobScreen(WorkbenchScreen):
             with Horizontal(classes="form-row advanced"):
                 with Vertical():
                     yield Field(
-                        Input("4", id="job-concurrency", type="integer"),
+                        Input(str(DEFAULT_CONCURRENCY), id="job-concurrency", type="integer"),
                         "Cases running at once",
                         "Between 1 and 32 requests can run together. Lower this if the provider "
                         "rejects bursts.",
-                        "4",
+                        str(DEFAULT_CONCURRENCY),
                         validator=numeric("Concurrent requests", 1, 32, integer=True),
                     )
                 with Vertical():
                     yield Field(
-                        Input("2", id="job-rate", type="number"),
+                        Input(f"{DEFAULT_REQUESTS_PER_SECOND:g}", id="job-rate", type="number"),
                         "New requests per second",
-                        "Limit how quickly new cases start. Use more than 0 and at most 1,000; "
-                        "lower it for rate limits.",
-                        "2",
+                        "Limit how quickly new cases start. Use more than 0 and at most 1,000. "
+                        "The rate halves automatically after a provider rate-limit response.",
+                        f"{DEFAULT_REQUESTS_PER_SECOND:g}",
                         validator=numeric("Request rate", 0, 1000, exclusive_minimum=True),
                     )
             yield Field(
@@ -450,7 +455,6 @@ class JobScreen(WorkbenchScreen):
                     plan.estimate_note,
                 ),
                 action="Start with Jev",
-                scope=self.kind,
             ):
                 status.update("Cancelled before starting. No online request was sent.")
                 return

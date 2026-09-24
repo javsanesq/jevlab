@@ -47,7 +47,31 @@ routing. Malformed responses raise instead of producing automation. SDK errors
 propagate to the caller. Code must still enforce business policy and authorize
 side effects: an automation disposition is a confidence routing decision.
 
-The functions send directly to `https://api.typesafe.ai` with the
+### Reuse one client in a service
+
+By default each call opens and closes its own SDK client. A web service or worker
+that makes many decisions should create one client at startup and pass it in, so
+calls share a connection pool instead of repeating the TLS handshake:
+
+```python
+from typesafe_sdk import AsyncTypeSafeClient
+
+from decision import aevaluate
+
+client = AsyncTypeSafeClient()  # Reads TYPESAFE_API_KEY; close it at shutdown.
+
+
+async def route_ticket(message: str) -> str | None:
+    result = await aevaluate({"ticket": {"message": message}}, client=client)
+    gate = result.routing["route"]
+    return str(gate.value) if gate.disposition == "automate" else None
+```
+
+`evaluate(state, client=TypeSafeClient(...))` works the same way synchronously.
+A supplied client keeps its own base URL, timeout and retry settings, is not
+closed by the call, and still receives the saved model unless `model=` overrides it.
+
+Without `client=`, the functions send directly to `https://api.typesafe.ai` with the
 [official synchronous or asynchronous SDK client](https://docs.typesafe.ai/sdk/python).
 They use the saved model unless explicitly overridden with `model=...`.
 Re-evaluate calibration before applying saved thresholds to a different model.

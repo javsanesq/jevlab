@@ -67,7 +67,8 @@ jevlab
 Open `support-triage`, change the sample message, and press **Ctrl+R** to call Jev.
 The result shows probabilities, review routing, latency, tokens, and an estimated
 cost calculated from returned usage. **Single runs start immediately and are
-billable.** Batch and evaluation workflows include cost checks.
+billable.** Batches and evaluations show an estimate and ask first only when it is
+above your $1.00 confirmation budget or the price is unknown.
 
 For scripting, the same decision is available without the TUI:
 
@@ -87,11 +88,28 @@ JSON output uses a versioned envelope; diagnostics stay on stderr.
 | Run one case and inspect probability bars | Open a template → **Get answers** |
 | Edit a design in your project | `jevlab templates edit ./decision.yaml` |
 | Reproduce a saved result | `jevlab history` |
-| Check labeled examples and tune review thresholds | `jevlab eval` |
-| Check regressions against saved cases | `jevlab eval compare baseline.json candidate.json` |
+| Check labeled examples, with 95% intervals | `jevlab eval run ./decision.yaml ./cases.jsonl` |
+| Pick the review threshold for a target accuracy | `jevlab eval tune JOB route --target-accuracy 0.95` |
+| Fail CI when a design change breaks saved cases | `jevlab eval check ./decision.yaml ./cases.jsonl --baseline baseline.json` |
 | Compare two designs on the same case | `jevlab compare --help` |
 | Process a CSV or JSONL file with checkpoints | `jevlab batch --help` |
 | Generate a standalone typed SDK module | `jevlab export support-triage --lang python --output decision.py` |
+
+### From labeled cases to a CI gate
+
+```sh
+jevlab eval run ./decision.yaml ./cases.jsonl --save-baseline baseline.json
+jevlab eval tune JOB_ID route --target-accuracy 0.95 --save --template ./decision.yaml
+jevlab export ./decision.yaml --output decision.py
+jevlab eval check ./decision.yaml ./cases.jsonl --baseline baseline.json --min-accuracy 0.9
+```
+
+Evaluate a design on labeled cases, let JevLab pick the confidence cutoff that
+automates the most cases at your target accuracy, export the typed module, and
+run the check in CI: exit 5 when a change makes a previously correct case wrong.
+At the published $0.042 per million input tokens, 1,000 short cases cost about
+two cents. See the [project workflow](docs/PROJECTS.md) and the
+[GitHub Actions example](examples/ci/jevlab-check.yml).
 
 New templates start with one question and send every result to review until you
 set thresholds. A review recommendation is local routing information, not an

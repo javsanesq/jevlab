@@ -13,7 +13,7 @@ from jevlab.core.client import Evaluation, Evaluator, SDKClient, translate_error
 from jevlab.core.credentials import Credentials, require_credentials
 from jevlab.core.errors import JevError
 from jevlab.core.models import Run, StrictModel, Template
-from jevlab.core.pricing import price
+from jevlab.core.pricing import over_budget, price
 from jevlab.core.service import Workbench, parse_state
 from jevlab.core.templates import context_estimate, dump_template, parse_template
 
@@ -86,13 +86,12 @@ class _PairEvaluator:
         if self.credential_error:
             # Workbench attaches the individual run ID, so give each side its own error.
             raise replace(self.credential_error)
-        evaluator = self.evaluator
-        if evaluator is None:
-            assert self.api_key is not None
-            # Each side owns its HTTP client; concurrent requests must not share a
-            # context manager that one side could close while the other is running.
-            evaluator = SDKClient(self.api_key, self.wb.settings)
-        return await evaluator.evaluate(template, state)
+        if self.evaluator is not None:
+            return await self.evaluator.evaluate(template, state)
+        assert self.api_key is not None
+        # Each side owns its HTTP client, so one side cannot close the other's connection.
+        async with SDKClient(self.api_key, self.wb.settings) as client:
+            return await client.evaluate(template, state)
 
 
 def comparison_plan(
@@ -110,7 +109,7 @@ def comparison_plan(
     return ComparisonPlan(
         estimated_input_tokens=sum(tokens),
         estimated_cost_nanousd=total,
-        requires_confirmation=total is None or total / 1e9 > wb.settings.confirm_cost_usd,
+        requires_confirmation=over_budget(total, wb.settings.confirm_cost_usd),
     )
 
 

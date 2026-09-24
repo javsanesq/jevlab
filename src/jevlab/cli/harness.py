@@ -9,14 +9,13 @@ import typer
 import uvicorn
 from rich.text import Text
 
-from jevlab.cli.common import JsonFlag, console, emit, guarded, workbench
-from jevlab.cli.spending import confirm_spend
+from jevlab.cli.common import JsonFlag, console, emit, guarded, stderr, workbench
 from jevlab.core.config import data_directory
 from jevlab.core.errors import JevError
 from jevlab.core.exporting import export_template, write_export
+from jevlab.core.jobs import DEFAULT_CONCURRENCY, DEFAULT_REQUESTS_PER_SECOND
 from jevlab.core.retention import cleanup
 from jevlab.core.service import Workbench
-from jevlab.core.spending import SpendEstimate
 from jevlab.server.app import create_app, server_token, server_token_source
 
 
@@ -82,8 +81,12 @@ def clean(
 @guarded
 def serve(
     port: Annotated[int, typer.Option(min=1024, max=65535)] = 8766,
-    concurrency: Annotated[int, typer.Option(min=1, max=32)] = 4,
-    rate: Annotated[int, typer.Option(min=1, max=100, help="Maximum new requests per second.")] = 2,
+    concurrency: Annotated[
+        int, typer.Option(min=1, max=32, help="Maximum simultaneous Jev calls.")
+    ] = DEFAULT_CONCURRENCY,
+    rate: Annotated[
+        int, typer.Option(min=1, max=100, help="Maximum new requests per second.")
+    ] = int(DEFAULT_REQUESTS_PER_SECOND),
     check: Annotated[
         bool, typer.Option("--check", help="Validate startup settings without listening.")
     ] = False,
@@ -109,17 +112,14 @@ def serve(
         else:
             console.print(Text(f"Local API configuration valid: {metadata['url']}"))
         return
-    confirm_spend(
-        SpendEstimate(
-            1,
-            None,
-            "Start the local API so your connected programs can request paid Jev decisions.",
-            "Starting the server is free. Each accepted decision request can cost money. "
-            "The total depends on the requests your programs send, so it is unknown. "
-            "Requests run without individual prompts until you stop the server with Ctrl+C.",
-        ),
-        machine=json_output,
-    )
+    if not json_output:
+        stderr.print(
+            Text(
+                f"Serving {metadata['url']}. Each accepted request is a billable Jev call; "
+                f"requests estimated above ${wb.settings.confirm_cost_usd:g} or without a "
+                "known price need authorize_cost:true. Stop with Ctrl+C."
+            )
+        )
     # Explicit flags prevent environment overrides from exposing the service externally.
     # Access logs are off: request URLs and local bearer tokens should not enter logs.
     config = uvicorn.Config(

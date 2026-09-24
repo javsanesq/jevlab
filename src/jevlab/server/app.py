@@ -7,6 +7,8 @@ import math
 import os
 import time
 from collections import deque
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import cast
 
 from pydantic import StrictBool, ValidationError
@@ -23,9 +25,10 @@ from jevlab import __version__
 from jevlab.core.client import Evaluator
 from jevlab.core.diagnostics import redact_text
 from jevlab.core.errors import JevError
+from jevlab.core.jobs import DEFAULT_CONCURRENCY, DEFAULT_REQUESTS_PER_SECOND
 from jevlab.core.models import StrictModel
-from jevlab.core.pricing import price
-from jevlab.core.service import Workbench, parse_state
+from jevlab.core.pricing import over_budget, price
+from jevlab.core.service import SharedEvaluator, Workbench, parse_state
 from jevlab.core.templates import context_estimate, validation_message
 
 MAX_BODY_BYTES = 2_000_000
@@ -111,7 +114,11 @@ class LocalAPI:
             or not 1 <= requests_per_second <= 100
         ):
             raise ValueError("Invalid server limits.")
-        self.wb, self.token, self.evaluator = wb, token, evaluator
+        self.wb, self.token = wb, token
+        # Reuse one key lookup and connection pool across requests. A failed lookup is
+        # retried on the next request, so fixing the key needs no server restart.
+        self.shared = SharedEvaluator(wb.settings, remember_failure=False)
+        self.evaluator: Evaluator = evaluator or self.shared
         self.concurrency, self.rate = concurrency, requests_per_second
         self.active = 0
         self.starts: deque[float] = deque()
@@ -255,9 +262,7 @@ class LocalAPI:
             )
         estimate = context_estimate(template, state)
         cost, _ = price(template.model, cast(int, estimate["estimated_total_tokens"]))
-        if (
-            cost is None or cost / 1e9 > self.wb.settings.confirm_cost_usd
-        ) and not payload.authorize_cost:
+        if over_budget(cost, self.wb.settings.confirm_cost_usd) and not payload.authorize_cost:
             return JSONResponse(
                 {
                     "schema_version": 1,
@@ -368,8 +373,8 @@ def create_app(
     token: str,
     *,
     port: int = 8766,
-    concurrency: int = 4,
-    requests_per_second: int = 2,
+    concurrency: int = DEFAULT_CONCURRENCY,
+    requests_per_second: int = int(DEFAULT_REQUESTS_PER_SECOND),
     evaluator: Evaluator | None = None,
 ) -> Starlette:
     api = LocalAPI(
@@ -380,7 +385,16 @@ def create_app(
         requests_per_second=requests_per_second,
         evaluator=evaluator,
     )
+
+    @asynccontextmanager
+    async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await api.shared.aclose()
+
     application = Starlette(
+        lifespan=lifespan,
         routes=[
             Route("/health", api.health, methods=["GET"]),
             Route("/templates", api.templates, methods=["GET"]),

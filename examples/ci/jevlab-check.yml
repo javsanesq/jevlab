@@ -1,0 +1,43 @@
+# Copy to .github/workflows/jevlab-check.yml in your application repository.
+# It evaluates a Jev design on committed labeled cases and fails the pull request
+# when accuracy drops below the limit or a previously correct case regresses.
+# Each run makes one billable Jev call per case (about $0.02 per 1,000 short cases
+# at the published input rate). Store your key as the TYPESAFE_API_KEY secret.
+name: Jev decision check
+
+on:
+  pull_request:
+    paths:
+      - "decisions/**"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Use an isolated JevLab profile
+        run: echo "JEVLAB_HOME=$RUNNER_TEMP/jevlab" >> "$GITHUB_ENV"
+      - name: Install JevLab
+        run: uv tool install --python 3.12 git+https://github.com/javsanesq/jevlab
+      - name: Use the key from the environment
+        run: jevlab config --set credential_mode=environment --json
+      - name: Evaluate against the committed baseline
+        run: >-
+          jevlab eval check decisions/routing.yaml decisions/cases.jsonl
+          --baseline decisions/baseline.json
+          --min-accuracy 0.90
+          --output "$RUNNER_TEMP/jevlab-check.json"
+      - name: Keep the full report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jevlab-check
+          path: ${{ runner.temp }}/jevlab-check.json
+          if-no-files-found: ignore

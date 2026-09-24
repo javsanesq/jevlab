@@ -2,6 +2,61 @@
 
 Versions describe the workbench application, not TypeSafe's model versions.
 
+## 0.11.0 — 2026-09-24
+
+Status: complete.
+
+- **CI quality gate:** `jevlab eval check DESIGN CASES --baseline baseline.json
+  --min-accuracy 0.9` runs an evaluation and exits 5 on a regression or low
+  accuracy, 4 when calls did not complete. It rejects an unpaired dataset before
+  any call. `eval run --save-baseline` replaces the job-ID one-liner. A GitHub
+  Actions example is in `examples/ci/jevlab-check.yml`.
+- **Threshold recommendation:** `eval tune JOB QUESTION --target-accuracy 0.95`
+  picks the cutoff that automates the most cases at the target (`--conservative`
+  uses the lower bound); with no gate arguments it prints the coverage/accuracy curve.
+- **Uncertainty:** accuracy and automated accuracy report 95% Wilson intervals in
+  the CLI and JSON (`accuracy_interval`).
+- **One spending rule:** paid workflows start with a notice when the estimate is
+  within `confirm_cost_usd` (default $1.00) and ask only above it or when the price
+  is unknown. `jev-latest` estimates use the rate of the version it resolved to.
+  `confirm_batch_cost`/`confirm_eval_cost` are retired; older configs still load.
+  Starting `jevlab serve` no longer asks. Scripts keep the `--yes` budget gate.
+- **Faster jobs:** eight workers and ten starts/second by default (was four and
+  two), one key lookup and one pooled HTTPS client per job and per server, and an
+  automatic slowdown after a provider 429.
+- **Integration:** a validated `base_url` setting for proxies/alternative API roots
+  (the `TYPESAFE_BASE_URL` environment variable is still ignored); exported modules
+  accept `client=` to reuse a long-lived SDK client.
+- **Datasets:** CSV columns can form a JSON state (`ticket.message` nests); Noul
+  CSV labels accept any case; label errors list the valid options and point to the
+  dataset reference.
+- **CLI polish:** help grouped as develop / operate / learn with text for every
+  command; `--state` rejects dataset files; invalid JSON state explains the
+  expected shape; local errors print `Error`/`Next`; unknown latency shows "—";
+  distinct TUI warning/error colors; the internal `phase` field left root JSON.
+- **Tests:** parallel with `pytest-xdist` (about 60 s instead of 4 minutes) and a
+  120-second per-test timeout.
+
+Verification: `make lint` passed (Ruff, formatting, Pyright). `make test` passed
+with **835 offline tests** and one opt-in live test skipped, in a Linux container.
+All provider behavior uses the official SDK over mocked HTTP transports and
+synthetic data. The editable tool installed with `make install` into an isolated
+uv tool directory; from outside the checkout, the installed 0.11.0 command passed
+version, root JSON, endpoint configuration and doctor display, alias pricing,
+`eval check` argument validation, dataset-as-state rejection, the JSON-state hint,
+CSV column import, a no-key evaluation stopping after one failed row, help grouping,
+the recorded demo, and a headless TUI check of the new defaults and budget field.
+With a mocked 100 ms Jev, 30 evaluation rows took 3.1 s at the new defaults
+versus 14.7 s before; this is a local scheduling measurement, not API throughput.
+**No live provider call was made.** macOS was not re-run for this version.
+
+Limits: the new defaults and alias pricing rely on the dated research record
+(1,200 requests/minute; aliases resolving to `jev-1.13.0`), not a live re-check.
+Recommendations and intervals describe the evaluated cases; they are not held-out
+evidence or guarantees. `eval check`, baseline and tuning recommendation are CLI
+workflows; the TUI evaluation screen does not show intervals yet. Outside
+developer demand remains unverified.
+
 ## 0.10.0 — 2026-09-23
 
 Status: complete.

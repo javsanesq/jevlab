@@ -7,7 +7,7 @@ dev:
 	uv run --all-extras jevlab
 
 test:
-	uv run --all-extras pytest -q
+	uv run --all-extras pytest -q -n auto
 
 lint:
 	uv run --all-extras ruff check .

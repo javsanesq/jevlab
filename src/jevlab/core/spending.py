@@ -3,13 +3,11 @@
 import json
 from dataclasses import dataclass
 from math import ceil
-from typing import Literal, cast
+from typing import cast
 
 from jevlab.core.models import Settings, Template
 from jevlab.core.pricing import price
 from jevlab.core.templates import context_estimate
-
-SpendScope = Literal["batch", "eval"]
 
 # Standard uncached API rates verified 2026-09-20. Nanodollars per token.
 # Same dated sources used by coach diagnostics; unlisted models stay unknown.

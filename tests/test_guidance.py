@@ -17,7 +17,7 @@ from jevlab.core.models import Run
 @pytest.fixture
 def guidance_cli() -> Iterator[typer.Typer]:
     app = typer.Typer()
-    register_guidance(app)
+    register_guidance(app, panel="Learn and explore")
     yield app
 
 
