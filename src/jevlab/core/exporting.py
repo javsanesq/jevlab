@@ -19,6 +19,8 @@ Requires Python 3.12+ and typesafe-sdk==0.7.1.
 __REQUIREMENTS__
 Supply TYPESAFE_API_KEY in the process environment. Never put a key in this file.
 Call evaluate(state) or await aevaluate(state); importing performs no API calls.
+Pass client= to reuse one TypeSafeClient/AsyncTypeSafeClient (and its connection pool)
+across calls; a supplied client keeps its own settings and stays open.
 Thresholds route judgments for application code; they never authorize side effects.
 SDK errors propagate to your caller. Timeouts may leave remote billing unknown.
 The SDK owns retries (two by default); avoid stacking automatic retry loops.
@@ -191,21 +193,28 @@ def evaluate(
     timeout: float = 10,
     max_retries: int = 2,
     transport: httpx2.BaseTransport | None = None,
+    client: TypeSafeClient | None = None,
 ) -> DecisionResult:
     """Call Jev synchronously; transport is available for offline testing.
 
     The saved model is the default. Explicit model overrides need fresh calibration.
-    HTTP operation timeout is not a total deadline across retries.
+    HTTP operation timeout is not a total deadline across retries. A supplied client
+    is reused as-is (its base URL, timeout and retries apply) and is not closed.
     """
     state = _state(state)
+    selected = DESIGN.model if model is None else model
+    if client is not None:
+        return _result(
+            client.system_one(state=state, questions=DESIGN.questions, model=selected)
+        )
     with TypeSafeClient(
         base_url="https://api.typesafe.ai",
-        model=DESIGN.model if model is None else model,
+        model=selected,
         timeout=timeout,
         retry=RetryPolicy(max_retries=max_retries),
         transport=transport,
-    ) as client:
-        return _result(client.system_one(state=state, questions=DESIGN.questions))
+    ) as owned:
+        return _result(owned.system_one(state=state, questions=DESIGN.questions))
 
 
 async def aevaluate(
@@ -215,17 +224,26 @@ async def aevaluate(
     timeout: float = 10,
     max_retries: int = 2,
     transport: httpx2.AsyncBaseTransport | None = None,
+    client: AsyncTypeSafeClient | None = None,
 ) -> DecisionResult:
-    """Call Jev asynchronously; use asyncio.timeout externally for a total deadline."""
+    """Call Jev asynchronously; use asyncio.timeout externally for a total deadline.
+
+    Supply one long-lived client to reuse connections across many calls.
+    """
     state = _state(state)
+    selected = DESIGN.model if model is None else model
+    if client is not None:
+        return _result(
+            await client.system_one(state=state, questions=DESIGN.questions, model=selected)
+        )
     async with AsyncTypeSafeClient(
         base_url="https://api.typesafe.ai",
-        model=DESIGN.model if model is None else model,
+        model=selected,
         timeout=timeout,
         retry=RetryPolicy(max_retries=max_retries),
         transport=transport,
-    ) as client:
-        return _result(await client.system_one(state=state, questions=DESIGN.questions))
+    ) as owned:
+        return _result(await owned.system_one(state=state, questions=DESIGN.questions))
 '''
 
 _LANGCHAIN = """

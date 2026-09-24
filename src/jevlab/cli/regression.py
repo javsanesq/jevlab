@@ -12,7 +12,9 @@ from jevlab.cli.common import JsonFlag, console, emit, guarded, workbench
 from jevlab.core.errors import JevError
 from jevlab.core.files import read_text
 from jevlab.core.jobs import BatchService
+from jevlab.core.models import StrictModel
 from jevlab.core.regression import (
+    CheckReport,
     FrozenPolicy,
     RegressionReport,
     VerificationReport,
@@ -28,56 +30,81 @@ Output = Annotated[Path, typer.Option(help="New JSON evidence file; existing fil
 Probability = Annotated[float, typer.Option(min=0, max=1)]
 
 
-def quality_result(report: RegressionReport | VerificationReport, machine: bool) -> None:
-    error = JevError(
-        "quality_gate_failed",
-        "The saved evaluation did not meet the requested quality limits.",
-        "Inspect the failed checks and changed cases; revise the design before accepting it.",
-        5,
-    )
+QUALITY_FAILURE = JevError(
+    "quality_gate_failed",
+    "The saved evaluation did not meet the requested quality limits.",
+    "Inspect the failed checks and changed cases; revise the design before accepting it.",
+    5,
+)
+
+
+def emit_quality(report: StrictModel, passed: bool) -> None:
+    envelope: dict[str, object] = {
+        "schema_version": 1,
+        "ok": passed,
+        "data": report.model_dump(mode="json"),
+    }
+    if not passed:
+        envelope["error"] = QUALITY_FAILURE.as_dict()
+    typer.echo(json.dumps(envelope))
+
+
+def check_result(report: CheckReport, machine: bool) -> None:
+    """Print a CI verdict; exit 5 when a quality limit fails."""
     if machine:
-        envelope: dict[str, object] = {
-            "schema_version": 1,
-            "ok": report.passed,
-            "data": report.model_dump(mode="json"),
-        }
-        if not report.passed:
-            envelope["error"] = error.as_dict()
-        typer.echo(json.dumps(envelope))
+        emit_quality(report, report.passed)
+    else:
+        console.print(Text("PASS" if report.passed else "FAIL", style="bold"))
+        if report.comparison is not None:
+            display_regression(report.comparison)
+        for failure in report.failures:
+            console.print(Text(failure))
+        console.print(Text(f"Job {report.job_id}. {report.note}", style="dim"))
+    if not report.passed:
+        raise typer.Exit(5)
+
+
+def display_regression(report: RegressionReport) -> None:
+    table = Table("Question", "Before", "After", "Improved", "Regressed", box=None)
+    for name, item in report.per_question.items():
+        table.add_row(
+            Text(name),
+            *[
+                Text(value, justify="right")
+                for value in (
+                    f"{item.baseline_accuracy:.2%}",
+                    f"{item.candidate_accuracy:.2%}",
+                    str(item.improved),
+                    str(item.regressed),
+                )
+            ],
+        )
+    console.print(table)
+    changed = Table("Case", "Question", "Change", "Before → after", box=None)
+    for case in report.changes[:20]:
+        changed.add_row(
+            Text(case.case_id),
+            Text(case.question),
+            case.change,
+            Text(
+                f"{case.baseline.predicted if case.baseline else 'no answer'} → "
+                f"{case.candidate.predicted if case.candidate else 'no answer'}"
+            ),
+        )
+    if report.changes:
+        console.print(changed)
+        console.print(
+            Text(f"{len(report.changes)} changed case/question pairs; --json includes all.")
+        )
+
+
+def quality_result(report: RegressionReport | VerificationReport, machine: bool) -> None:
+    if machine:
+        emit_quality(report, report.passed)
     else:
         console.print(Text("PASS" if report.passed else "FAIL", style="bold"))
         if isinstance(report, RegressionReport):
-            table = Table("Question", "Before", "After", "Improved", "Regressed", box=None)
-            for name, item in report.per_question.items():
-                table.add_row(
-                    Text(name),
-                    *[
-                        Text(value, justify="right")
-                        for value in (
-                            f"{item.baseline_accuracy:.2%}",
-                            f"{item.candidate_accuracy:.2%}",
-                            str(item.improved),
-                            str(item.regressed),
-                        )
-                    ],
-                )
-            console.print(table)
-            changed = Table("Case", "Question", "Change", "Before → after", box=None)
-            for case in report.changes[:20]:
-                changed.add_row(
-                    Text(case.case_id),
-                    Text(case.question),
-                    case.change,
-                    Text(
-                        f"{case.baseline.predicted if case.baseline else 'no answer'} → "
-                        f"{case.candidate.predicted if case.candidate else 'no answer'}"
-                    ),
-                )
-            if report.changes:
-                console.print(changed)
-                console.print(
-                    Text(f"{len(report.changes)} changed case/question pairs; --json includes all.")
-                )
+            display_regression(report)
         else:
             table = Table("Question", "Automated / total", "Accuracy", "Coverage", box=None)
             for name, stats in report.per_question.items():

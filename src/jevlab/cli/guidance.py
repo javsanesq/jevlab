@@ -16,10 +16,10 @@ from jevlab.core.service import Workbench
 from jevlab.rendering import render_run
 
 
-def register_guidance(app: typer.Typer) -> None:
-    app.command("demo", rich_help_panel="Workflow")(demo)
-    app.command("tour", rich_help_panel="Learning and help")(tour)
-    app.command("glossary", rich_help_panel="Learning and help")(glossary)
+def register_guidance(app: typer.Typer, *, panel: str) -> None:
+    app.command("demo", rich_help_panel=panel)(demo)
+    app.command("tour", rich_help_panel=panel)(tour)
+    app.command("glossary", rich_help_panel=panel)(glossary)
 
 
 @guarded

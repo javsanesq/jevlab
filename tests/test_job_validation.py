@@ -11,9 +11,9 @@ from textual.widgets import Input, Static
 from jevlab.core.jobs import BatchService
 from jevlab.core.service import Workbench
 from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm
 from jevlab.tui.evaluation import EvalScreen, JobScreen
 from jevlab.tui.fields import Field, output_file
-from jevlab.tui.spending import JobCostConfirm
 
 
 @pytest.mark.parametrize(
@@ -77,6 +77,7 @@ async def test_new_output_parent_and_suffix_work_only_after_confirmation(
     wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     evaluator = mock_runs(wb, monkeypatch)
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
     path = dataset(tmp_path)
     destination = tmp_path / "new-folder" / "results.txt"
     app = JevApp(wb, start="batch")
@@ -88,7 +89,7 @@ async def test_new_output_parent_and_suffix_work_only_after_confirmation(
         await pilot.pause()
         assert not screen.query_one("#field-output-path", Field).error
         await finish_job(app, pilot, screen.prepare(run=True), approve=False)
-        assert isinstance(app.screen, JobCostConfirm)
+        assert isinstance(app.screen, Confirm)
         assert not destination.parent.exists() and not evaluator.requests
         await pilot.click("#keep")
         await app.workers.wait_for_complete()

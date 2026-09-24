@@ -235,7 +235,7 @@ async def test_errors_use_plain_shape_and_reopen_safely(wb: Workbench) -> None:
         await pilot.press("f2")
         assert isinstance(app.screen, ErrorDetails)
         text = str(app.screen.query_one("#error-details", Static).content)
-        assert all(label in text for label in ("What happened:", "Why:", "Next:"))
+        assert all(label in text for label in ("Error:", "Next:"))
         await pilot.press("ctrl+g")
         assert isinstance(app.screen, Glossary)
         await pilot.press("escape", "escape")
@@ -275,7 +275,7 @@ async def test_stale_history_row_is_an_actionable_error(
         history.inspect_run()
         await pilot.pause()
         assert app.screen is history
-        assert "Why: This saved run no longer exists" in app.last_error
+        assert "Error: This saved run no longer exists" in app.last_error
         await pilot.press("f2")
         assert isinstance(app.screen, ErrorDetails)
 

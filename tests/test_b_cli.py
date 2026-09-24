@@ -94,14 +94,17 @@ def test_estimates_are_offline_honest_and_do_not_mutate(design: Template) -> Non
 def test_declining_human_action_sends_nothing(
     arguments: list[str], wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    wb.update_settings(wb.settings.with_updates({"coach_provider": "openai"}))
+    # Above the confirmation budget, a human is asked before the coach is called.
+    wb.update_settings(
+        wb.settings.with_updates({"coach_provider": "openai", "confirm_cost_usd": 0})
+    )
     monkeypatch.setattr(commands, "workbench", lambda: wb)
     monkeypatch.setattr(learning, "workbench", lambda: wb)
     terminal(monkeypatch)
     result = runner.invoke(app, arguments, input="n\n")
     assert result.exit_code == 2, result.output
     assert "Estimated charge:" in result.stderr
-    assert "What happened:" in result.stderr and "Why:" in result.stderr
+    assert "Error:" in result.stderr and "What happened:" not in result.stderr
     assert "Next:" in result.stderr and "No request was sent" in result.stderr
     assert result.stdout.strip() == "n"  # The terminal echoes the user's answer.
     assert not wb.storage.history()
@@ -120,13 +123,15 @@ def test_rerun_starts_without_cost_consent(wb: Workbench, monkeypatch: pytest.Mo
     assert len(fake.requests) == 1 and len(wb.storage.history()) == 2
 
 
-def test_coach_explanation_requires_new_consent(
+def test_coach_explanation_above_budget_requires_new_consent(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     previous = asyncio.run(
         wb.run(wb.templates.load("support-triage"), "Refund please", evaluator=MockEvaluator())
     )
-    wb.update_settings(wb.settings.with_updates({"coach_provider": "openai"}))
+    wb.update_settings(
+        wb.settings.with_updates({"coach_provider": "openai", "confirm_cost_usd": 0})
+    )
     monkeypatch.setattr(learning, "workbench", lambda: wb)
     terminal(monkeypatch)
     result = runner.invoke(app, ["coach", "explain", previous.id], input="n\n")
@@ -184,8 +189,11 @@ def test_noninteractive_plain_output_keeps_script_behavior(
     assert "Estimated charge:" not in result.stderr
 
 
-def test_job_confirmation_applies_below_old_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_job_confirmation_applies_above_budget(
+    wb: Workbench, monkeypatch: pytest.MonkeyPatch
+) -> None:
     terminal(monkeypatch)
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
     seen: list[str] = []
 
     def decline(message: str, **kwargs: object) -> bool:
@@ -194,19 +202,20 @@ def test_job_confirmation_applies_below_old_budget(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(spending.typer, "confirm", decline)
     with pytest.raises(JevError, match="No request was sent"):
-        authorize(1, 1, "Estimate only.", False, False, False)
+        authorize(1, 1, "Estimate only.", True, False, False, wb=wb)
     assert len(seen) == 1
-    assert authorize(1, 1, "Estimate only.", False, True, False)
+    assert authorize(1, 1, "Estimate only.", True, True, False, wb=wb)
     assert len(seen) == 1  # --yes is explicit consent, not a second prompt.
-    assert not authorize(1, 1, "Estimate only.", False, False, True)
+    assert not authorize(1, 1, "Estimate only.", False, False, True, wb=wb)
     with pytest.raises(JevError, match="No calls were started"):
-        authorize(1, None, "Unknown estimate.", True, False, True)
+        authorize(1, None, "Unknown estimate.", True, False, True, wb=wb)
 
 
 @pytest.mark.parametrize("command", ["eval", "batch", "compare"])
-def test_job_cli_decline_stops_even_a_tiny_charge(
+def test_job_cli_decline_stops_a_charge_above_budget(
     command: str, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
     dataset = tmp_path / "labeled.jsonl"
     dataset.write_text(
         json.dumps(
@@ -252,7 +261,9 @@ def test_declining_feedback_preserves_completed_grade(
     item = lesson("1")
     design = starter(item, "practice", wb.settings.model)
     wb.templates.save(design)
-    wb.update_settings(wb.settings.with_updates({"coach_provider": "openai"}))
+    wb.update_settings(
+        wb.settings.with_updates({"coach_provider": "openai", "confirm_cost_usd": 0})
+    )
     fake = LabeledEvaluator(pattern(item.pattern).cases)
     use_evaluator(wb, fake, monkeypatch)
     monkeypatch.setattr(learning, "workbench", lambda: wb)
@@ -270,29 +281,33 @@ def test_declining_feedback_preserves_completed_grade(
     assert len(wb.storage.history()) == len(pattern(item.pattern).cases)
 
 
-def test_online_doctor_can_cancel_before_connection(
+def test_online_doctor_is_free_and_needs_no_prompt(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(commands, "workbench", lambda: wb)
     terminal(monkeypatch)
-    result = runner.invoke(app, ["doctor", "--online"], input="n\n")
-    assert result.exit_code == 2
-    assert "$0.00000000" in result.stderr
-    assert "No request was sent" in result.stderr
+    prompts: list[str] = []
+    monkeypatch.setattr(spending.typer, "confirm", lambda message, **_: prompts.append(message))
+    result = runner.invoke(app, ["doctor", "--online"])
+    # No key in this profile: the model-list check stops before any connection.
+    assert result.exit_code == 3 and "missing" not in result.stdout
+    assert "$0.00000000" in result.stderr and not prompts
 
 
-def test_server_confirmation_explains_delegated_spending(
+def test_server_start_explains_delegated_spending_without_prompt(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("JEVLAB_SERVER_TOKEN", "local-test-token-at-least-32-characters")
     monkeypatch.setattr(harness, "workbench", lambda: wb)
+    served: list[object] = []
+    monkeypatch.setattr(harness.uvicorn.Server, "run", lambda self, **_: served.append(self))
     terminal(monkeypatch)
-    result = runner.invoke(app, ["serve"], input="n\n")
-    assert result.exit_code == 2, result.output
-    assert "unknown" in result.stderr and "without individual prompts" in result.stderr
-    assert "No request was sent" in result.stderr
+    result = runner.invoke(app, ["serve"])
+    assert result.exit_code == 0, result.output
+    assert "billable Jev call" in result.stderr and "authorize_cost:true" in result.stderr
+    assert "Continue and allow" not in result.output and len(served) == 1
     check = runner.invoke(app, ["serve", "--check"])
-    assert check.exit_code == 0 and "Continue and allow" not in check.output
+    assert check.exit_code == 0 and "billable" not in check.output
 
 
 @pytest.mark.parametrize("verbose", [False, True])
@@ -327,7 +342,9 @@ def test_error_detail_is_safe_and_zero_call_estimate_never_prompts(
     assert "sk-test-secret" not in human_error(error, verbose=True)
     assert "safe_code" in human_error(error, verbose=True)
     assert "Details:" not in human_error(error)
-    assert not confirm_spend(SpendEstimate(0, 0, "Nothing to do.", "No requests."))
+    assert not confirm_spend(
+        SpendEstimate(0, 0, "Nothing to do.", "No requests."), settings=Settings()
+    )
 
 
 def test_configuration_mode_is_available_to_scripts() -> None:

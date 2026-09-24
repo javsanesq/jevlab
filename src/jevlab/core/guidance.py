@@ -478,11 +478,11 @@ _controls(
 )
 _controls("ui-mode", "Choose how many controls to show", GLOSSARY["Simple mode"], "Simple mode")
 _controls(
-    "confirm-batch-cost confirm-eval-cost remember-cost",
-    "Remember spending confirmation for this scope",
-    "Batch and evaluation prompts are separate preferences. Leave confirmation on to review "
-    "the estimate each time, or turn it off when you are comfortable with repeated jobs. "
-    "You can turn either prompt on again in Settings. Single runs never need a cost confirmation.",
+    "confirm-cost",
+    "When to ask before spending",
+    "Paid workflows estimated at or below this dollar amount start with a short notice. "
+    "Larger estimates, and models without a verified price, ask first. Scripts pass --yes "
+    "for the same cases. Single runs never need a cost confirmation.",
     "Batch",
 )
 _controls("dataset-path lesson-data pattern-data", "Cases to test", GLOSSARY["Dataset"], "Dataset")

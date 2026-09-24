@@ -37,12 +37,13 @@ def human_error(error: JevError, *, verbose: bool = False) -> str:
     elif error.code == "client_configuration":
         happened = "The request could not start because the client settings are invalid."
     else:
-        happened = "This action could not be completed."
+        happened = None
+    # A specific cause gets the full what/why/next shape; a local error is said once.
     text = (
-        f"What happened: {happened}\n"
-        f"Why: {redact_text(error.message)}\n"
-        f"Next: {redact_text(error.fix)}"
-    )
+        f"What happened: {happened}\nWhy: {redact_text(error.message)}\n"
+        if happened
+        else f"Error: {redact_text(error.message)}\n"
+    ) + f"Next: {redact_text(error.fix)}"
     if error.http_status:
         text += f"\nHTTP status: {error.http_status}"
     if error.request_id:

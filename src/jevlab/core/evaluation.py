@@ -44,6 +44,8 @@ class QuestionMetrics(StrictModel):
     failed: int = 0
     correct: int = 0
     accuracy: float = 0
+    # 95% Wilson score interval for accuracy over all labeled rows.
+    accuracy_interval: tuple[float, float] | None = None
     answered_accuracy: float | None = None
     calibration: list[CalibrationBin] = Field(default_factory=list)
     confidence_calibration: list[CalibrationBin] = Field(default_factory=list)
@@ -78,8 +80,9 @@ class EvalReport(StrictModel):
         "Brier: sum of squared class errors for Choice/Score (0–2), binary squared error "
         "for Noul (0–1). Brier, reliability and MAE exclude missing answers. "
         "Worst misses lists at most 100 per question. Latency includes all recorded attempts; "
-        "percentiles linearly interpolate ordered samples. Threshold metrics describe this "
-        "dataset, not held-out guarantees."
+        "percentiles linearly interpolate ordered samples. Intervals are 95% Wilson score "
+        "intervals that treat cases as independent; they describe sampling noise, not "
+        "distribution shift. Threshold metrics describe this dataset, not held-out guarantees."
     )
 
 
@@ -91,6 +94,29 @@ class ThresholdStats(StrictModel):
     correct: int
     coverage: float
     accuracy: float | None
+    # 95% Wilson score interval for accuracy among automated cases.
+    accuracy_interval: tuple[float, float] | None = None
+
+
+class ThresholdRecommendation(StrictModel):
+    target_accuracy: float
+    conservative: bool
+    recommended: ThresholdStats | None
+    note: str
+
+
+def wilson_interval(successes: int, total: int, z: float = 1.96) -> tuple[float, float] | None:
+    """95% Wilson score interval; stays informative for small samples and 0%/100% rates."""
+    if total <= 0:
+        return None
+    rate = successes / total
+    denominator = 1 + z * z / total
+    center = (rate + z * z / (2 * total)) / denominator
+    margin = z * math.sqrt(rate * (1 - rate) / total + z * z / (4 * total * total)) / denominator
+    # The analytic endpoints are exact at 0% and 100%; avoid 0.999… from rounding.
+    low = 0.0 if successes == 0 else max(0.0, center - margin)
+    high = 1.0 if successes == total else min(1.0, center + margin)
+    return low, high
 
 
 def _calibration(
@@ -230,6 +256,7 @@ def evaluate_runs(template: Template, rows: list[tuple[DatasetRow, Run | None]])
         item.failed = item.total - item.answered
         item.correct = sum(observation.correct for observation in item.observations)
         item.accuracy = item.correct / item.total if item.total else 0
+        item.accuracy_interval = wilson_interval(item.correct, item.total)
         item.answered_accuracy = item.correct / item.answered if item.answered else None
         item.calibration = _calibration(item.observations)
         if item.primitive != "noul":
@@ -287,7 +314,92 @@ def threshold_stats(metrics: QuestionMetrics, gate: Gate | None) -> ThresholdSta
         correct=correct,
         coverage=automated / metrics.total if metrics.total else 0,
         accuracy=correct / automated if automated else None,
+        accuracy_interval=wilson_interval(correct, automated),
     )
+
+
+def _meets(stats: ThresholdStats, target: float, conservative: bool) -> bool:
+    if not stats.automated or stats.accuracy is None or stats.accuracy_interval is None:
+        return False
+    return (stats.accuracy_interval[0] if conservative else stats.accuracy) >= target
+
+
+def recommend_threshold(
+    metrics: QuestionMetrics, target_accuracy: float, *, conservative: bool = False
+) -> ThresholdRecommendation:
+    """Find the gate with the most automation whose automated accuracy meets a target.
+
+    Choice/Score try every observed confidence as a cutoff; the lowest qualifying
+    cutoff automates the most cases. Noul chooses its yes and no cutoffs separately,
+    each meeting the target on its own side, so the combined accuracy meets it too.
+    ``conservative`` requires the Wilson lower bound, not the point estimate, to
+    meet the target. Tuning data overstates held-out performance; verify separately.
+    """
+    if not 0 < target_accuracy <= 1:
+        raise JevError(
+            "invalid_target", "Target accuracy must be above 0 and at most 1.", "Use 0.95."
+        )
+    note = (
+        "Chosen on this evaluation's cases, which overstates accuracy on new data. "
+        "Freeze the gate and verify it on separate held-out cases before relying on it."
+    )
+    best: ThresholdStats | None = None
+    if metrics.primitive == "noul":
+        values = sorted({float(item.value) for item in metrics.observations})
+        yes = _noul_side(
+            metrics, [v for v in values if v >= 0.5], True, target_accuracy, conservative
+        )
+        no = _noul_side(
+            metrics, [v for v in reversed(values) if v < 0.5], False, target_accuracy, conservative
+        )
+        if yes is not None or no is not None:
+            gate = NoulGate(
+                no_at_or_below=no if no is not None else 0.0,
+                yes_at_or_above=yes if yes is not None else 1.0,
+            )
+            stats = threshold_stats(metrics, gate)
+            best = stats if _meets(stats, target_accuracy, conservative) else None
+    else:
+        cutoffs = sorted(
+            {item.confidence for item in metrics.observations if item.confidence is not None}
+        )
+        for cutoff in cutoffs:
+            stats = threshold_stats(metrics, ConfidenceGate(automate_at_or_above=cutoff))
+            if _meets(stats, target_accuracy, conservative):
+                best = stats
+                break
+    if best is None:
+        note = (
+            "No gate on these cases meets the target; keep every case in review, collect more "
+            "labeled cases, or improve the design. " + note
+        )
+    return ThresholdRecommendation(
+        target_accuracy=target_accuracy, conservative=conservative, recommended=best, note=note
+    )
+
+
+def _noul_side(
+    metrics: QuestionMetrics,
+    candidates: list[float],
+    yes: bool,
+    target: float,
+    conservative: bool,
+) -> float | None:
+    """Most permissive cutoff for one Noul branch whose own accuracy meets the target."""
+    for cutoff in candidates:
+        chosen = [
+            item
+            for item in metrics.observations
+            if (float(item.value) >= cutoff if yes else float(item.value) <= cutoff)
+        ]
+        correct = sum(item.expected is yes for item in chosen)
+        interval = wilson_interval(correct, len(chosen))
+        if not chosen or interval is None:
+            continue
+        score = interval[0] if conservative else correct / len(chosen)
+        if score >= target:
+            return cutoff
+    return None
 
 
 def threshold_curve(metrics: QuestionMetrics, steps: int = 21) -> list[ThresholdStats]:

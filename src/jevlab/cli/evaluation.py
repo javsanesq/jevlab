@@ -18,32 +18,52 @@ from jevlab.cli.common import (
     emit,
     guarded,
     launch,
+    parse_state_for,
+    read_state_payload,
     stderr,
     verbose_errors,
     workbench,
 )
+from jevlab.cli.regression import check_result
 from jevlab.cli.regression import register as register_regression
 from jevlab.cli.spending import confirm_spend, interactive
 from jevlab.core.compare import ComparisonReport, compare, comparison_plan
 from jevlab.core.errors import JevError
-from jevlab.core.evaluation import EvalReport, threshold_stats
-from jevlab.core.files import read_text
-from jevlab.core.jobs import BatchService, JobReport
+from jevlab.core.evaluation import (
+    EvalReport,
+    QuestionMetrics,
+    recommend_threshold,
+    threshold_curve,
+    threshold_stats,
+)
+from jevlab.core.jobs import (
+    DEFAULT_CONCURRENCY,
+    DEFAULT_REQUESTS_PER_SECOND,
+    BatchService,
+    JobReport,
+)
 from jevlab.core.models import ConfidenceGate, Gate, NoulGate, Template
 from jevlab.core.pricing import format_cost
-from jevlab.core.service import Workbench, parse_state
-from jevlab.core.spending import SpendEstimate, SpendScope
+from jevlab.core.regression import (
+    check_evaluation,
+    read_snapshot,
+    require_paired_cases,
+    snapshot,
+    write_artifact,
+)
+from jevlab.core.service import Workbench
+from jevlab.core.spending import SpendEstimate
 from jevlab.presentation import human_error
 
 datasets_app = typer.Typer(invoke_without_command=True, help="Register CSV/JSONL dataset paths.")
 eval_app = typer.Typer(invoke_without_command=True, help="Evaluate designs and tune review gates.")
-register_regression(eval_app)
 Concurrency = Annotated[int, typer.Option(min=1, max=32, help="Maximum simultaneous Jev calls.")]
 Rate = Annotated[
     float, typer.Option("--rate", min=0.01, max=100, help="Maximum new calls per second.")
 ]
 Yes = Annotated[
-    bool, typer.Option("--yes", help="Skip this cost prompt; do not change preferences.")
+    bool,
+    typer.Option("--yes", help="Authorize an estimate above your confirmation budget, once."),
 ]
 
 
@@ -55,16 +75,14 @@ def authorize(
     yes: bool,
     machine: bool,
     *,
-    wb: Workbench | None = None,
-    scope: SpendScope | None = None,
+    wb: Workbench,
 ) -> bool:
     """Show the estimate before any call, and never prompt in machine mode."""
     if interactive(machine):
         return confirm_spend(
             SpendEstimate(calls, cost, f"Run {calls:,} live Jev decisions.", note),
+            settings=wb.settings,
             yes=yes,
-            wb=wb,
-            scope=scope,
         )
     stderr.print(Text(f"{calls:,} Jev calls · estimated {format_cost(cost)}. {note}"))
     if required and not yes:
@@ -100,7 +118,7 @@ def datasets(ctx: typer.Context, json_output: JsonFlag = False) -> None:
     list_datasets(json_output=json_output)
 
 
-@datasets_app.command("list")
+@datasets_app.command("list", help="List registered dataset files and their fingerprints.")
 @guarded
 def list_datasets(json_output: JsonFlag = False) -> None:
     data = BatchService(workbench()).datasets()
@@ -120,7 +138,9 @@ def list_datasets(json_output: JsonFlag = False) -> None:
     console.print(Text("Dataset files are referenced in place; contents are not copied."))
 
 
-@datasets_app.command("import")
+@datasets_app.command(
+    "import", help="Validate a labeled dataset against a template and register it."
+)
 @guarded
 def import_dataset(
     path: Path,
@@ -176,13 +196,26 @@ def plan_evaluation(template: str, dataset: Path, json_output: JsonFlag = False)
     )
 
 
+def interval_text(interval: tuple[float, float] | None) -> str:
+    return f"{interval[0]:.0%}–{interval[1]:.0%}" if interval else "—"
+
+
 def display_metrics(report: EvalReport) -> None:
-    table = Table("Question", "Correct / labeled", "Accuracy", "Answered", "Score MAE", box=None)
+    table = Table(
+        "Question",
+        "Correct / labeled",
+        "Accuracy",
+        "95% interval",
+        "Answered",
+        "Score MAE",
+        box=None,
+    )
     for name, metrics in report.per_question.items():
         table.add_row(
             Text(name),
             Text(f"{metrics.correct:,}/{metrics.total:,}", justify="right"),
             Text(f"{metrics.accuracy:.2%}", justify="right"),
+            Text(interval_text(metrics.accuracy_interval), justify="right"),
             Text(f"{metrics.answered:,}", justify="right"),
             Text(
                 f"{metrics.mean_absolute_error:.2f}"
@@ -303,25 +336,21 @@ def display_report(report: JobReport, machine: bool) -> None:
             )
 
 
-@eval_app.command("run", help="Evaluate a named design or project YAML on labeled cases.")
-@guarded
-def run_evaluation(
-    template: str,
-    dataset: Path,
-    concurrency: Concurrency = 4,
-    rate: Rate = 2.0,
-    resume: Annotated[str | None, typer.Option(help="Resume this evaluation job.")] = None,
-    retry_failed: Annotated[bool, typer.Option("--retry-failed")] = False,
-    retry_unknown: Annotated[
-        bool, typer.Option("--retry-unknown", help="May repeat a remotely completed/billed call.")
-    ] = False,
-    yes: Yes = False,
-    json_output: JsonFlag = False,
-) -> None:
-    wb = workbench()
+def execute_evaluation(
+    wb: Workbench,
+    design: Template,
+    path: Path,
+    *,
+    concurrency: int,
+    rate: float,
+    yes: bool,
+    json_output: bool,
+    resume: str | None = None,
+    retry_failed: bool = False,
+    retry_unknown: bool = False,
+) -> JobReport:
+    """Plan, authorize and run one evaluation job with a progress bar on stderr."""
     service = BatchService(wb)
-    design = wb.templates.load_reference(template)
-    path = dataset.expanduser()
     plan = service.plan(
         design,
         path,
@@ -338,11 +367,10 @@ def run_evaluation(
         yes,
         json_output,
         wb=wb,
-        scope="eval",
     )
     with progress_display(json_output) as progress:
         task = progress.add_task("Evaluating", total=plan.calls)
-        report = asyncio.run(
+        return asyncio.run(
             service.run(
                 design,
                 path,
@@ -357,9 +385,130 @@ def run_evaluation(
                 progress=lambda done, total: progress.update(task, completed=done, total=total),
             )
         )
+
+
+SaveBaseline = Annotated[
+    Path | None,
+    typer.Option(help="Also save the finished evaluation as a new baseline JSON file."),
+]
+
+
+@eval_app.command("run", help="Evaluate a named design or project YAML on labeled cases.")
+@guarded
+def run_evaluation(
+    template: str,
+    dataset: Path,
+    concurrency: Concurrency = DEFAULT_CONCURRENCY,
+    rate: Rate = DEFAULT_REQUESTS_PER_SECOND,
+    resume: Annotated[str | None, typer.Option(help="Resume this evaluation job.")] = None,
+    retry_failed: Annotated[
+        bool, typer.Option("--retry-failed", help="With --resume, repeat rows that failed.")
+    ] = False,
+    retry_unknown: Annotated[
+        bool, typer.Option("--retry-unknown", help="May repeat a remotely completed/billed call.")
+    ] = False,
+    save_baseline: SaveBaseline = None,
+    yes: Yes = False,
+    json_output: JsonFlag = False,
+) -> None:
+    wb = workbench()
+    if save_baseline is not None and save_baseline.expanduser().exists():
+        raise JevError(
+            "artifact_exists",
+            "The baseline file already exists.",
+            "Choose a new filename to preserve the earlier evidence. No API call was made.",
+        )
+    report = execute_evaluation(
+        wb,
+        wb.templates.load_reference(template),
+        dataset.expanduser(),
+        concurrency=concurrency,
+        rate=rate,
+        yes=yes,
+        json_output=json_output,
+        resume=resume,
+        retry_failed=retry_failed,
+        retry_unknown=retry_unknown,
+    )
     display_report(report, json_output)
     if report.status != "completed":
+        if save_baseline is not None:
+            stderr.print(Text("Baseline not saved: the evaluation did not complete."))
         raise typer.Exit(4)
+    if save_baseline is not None:
+        write_artifact(save_baseline, snapshot(BatchService(wb), report.id))
+        if not json_output:
+            console.print(Text(f"Baseline saved to {save_baseline}."))
+
+
+@eval_app.command(
+    "check",
+    help="Evaluate, then fail with exit 5 on regressions or low accuracy. For CI.",
+)
+@guarded
+def check_evaluation_command(
+    template: str,
+    dataset: Path,
+    baseline: Annotated[
+        Path | None,
+        typer.Option(help="Baseline JSON to compare against (from --save-baseline)."),
+    ] = None,
+    min_accuracy: Annotated[
+        float | None,
+        typer.Option(min=0, max=1, help="Fail when any question's accuracy is below this."),
+    ] = None,
+    max_regressions: Annotated[
+        int,
+        typer.Option(min=0, help="With --baseline, allowed newly wrong case/question pairs."),
+    ] = 0,
+    save_baseline: SaveBaseline = None,
+    output: Annotated[
+        Path | None, typer.Option(help="Save the complete check report as a new JSON file.")
+    ] = None,
+    concurrency: Concurrency = DEFAULT_CONCURRENCY,
+    rate: Rate = DEFAULT_REQUESTS_PER_SECOND,
+    yes: Yes = False,
+    json_output: JsonFlag = False,
+) -> None:
+    if baseline is None and min_accuracy is None and save_baseline is None:
+        raise JevError(
+            "check_limits_required",
+            "A check needs a baseline, a minimum accuracy, or a baseline to save.",
+            "Start with --save-baseline baseline.json, then check with --baseline "
+            "baseline.json (and optionally --min-accuracy 0.9).",
+        )
+    for target in (save_baseline, output):
+        if target is not None and target.expanduser().exists():
+            raise JevError(
+                "artifact_exists",
+                f"{target} already exists.",
+                "Choose a new filename to preserve earlier evidence. No API call was made.",
+            )
+    wb = workbench()
+    design = wb.templates.load_reference(template)
+    path = dataset.expanduser()
+    before = read_snapshot(baseline) if baseline is not None else None
+    if before is not None:
+        require_paired_cases(before, path, design)
+    report = execute_evaluation(
+        wb, design, path, concurrency=concurrency, rate=rate, yes=yes, json_output=json_output
+    )
+    if report.status != "completed":
+        display_report(report, json_output)
+        raise typer.Exit(4)
+    evidence = snapshot(BatchService(wb), report.id)
+    if save_baseline is not None:
+        write_artifact(save_baseline, evidence)
+    result = check_evaluation(
+        evidence, before, max_regressions=max_regressions, min_accuracy=min_accuracy
+    )
+    if output is not None:
+        write_artifact(output, result)
+    if not json_output and report.evaluation is not None:
+        display_metrics(report.evaluation)
+        if save_baseline is not None:
+            console.print(Text(f"Baseline saved to {save_baseline}."))
+    check_result(result, json_output)
 
 
 @eval_app.command("show", help="Inspect saved metrics, calibration and confidently wrong cases.")
@@ -383,9 +532,31 @@ def show_evaluation(job_id: str, json_output: JsonFlag = False) -> None:
 def tune_evaluation(
     job_id: str,
     question: str,
-    threshold: Annotated[float | None, typer.Option(min=0, max=1)] = None,
-    no_below: Annotated[float | None, typer.Option("--no-below", min=0, max=1)] = None,
-    yes_above: Annotated[float | None, typer.Option("--yes-above", min=0, max=1)] = None,
+    threshold: Annotated[
+        float | None, typer.Option(min=0, max=1, help="Choice/Score confidence cutoff.")
+    ] = None,
+    no_below: Annotated[
+        float | None, typer.Option("--no-below", min=0, max=1, help="Noul: automate no at/below.")
+    ] = None,
+    yes_above: Annotated[
+        float | None,
+        typer.Option("--yes-above", min=0, max=1, help="Noul: automate yes at/above."),
+    ] = None,
+    target_accuracy: Annotated[
+        float | None,
+        typer.Option(
+            "--target-accuracy",
+            min=0,
+            max=1,
+            help="Recommend the gate with the most automation meeting this accuracy.",
+        ),
+    ] = None,
+    conservative: Annotated[
+        bool,
+        typer.Option(
+            "--conservative", help="With --target-accuracy, require the 95% lower bound to meet it."
+        ),
+    ] = False,
     save: Annotated[
         bool, typer.Option("--save", help="Save the gate to the matching template.")
     ] = False,
@@ -405,10 +576,38 @@ def tune_evaluation(
         raise JevError(
             "unknown_question",
             "That question is not in this eval.",
-            "Use an evaluated question ID.",
+            "Use an evaluated question ID: " + ", ".join(design.questions) + ".",
         )
-    gate: Gate
-    if isinstance(design.questions[question], Noul):
+    metrics = report.evaluation.per_question[question]
+    is_noul = isinstance(design.questions[question], Noul)
+    explicit = threshold is not None or no_below is not None or yes_above is not None
+    note = "Empirical tuning on this dataset; verify on a separate holdout before deployment."
+    if target_accuracy is not None and explicit:
+        raise JevError(
+            "invalid_gate",
+            "Choose either --target-accuracy or explicit gate values, not both.",
+            "Use --target-accuracy 0.95 to get a recommendation.",
+        )
+    if target_accuracy is None and not explicit:
+        if save:
+            raise JevError(
+                "invalid_gate", "Nothing to save without a gate.", "Add --target-accuracy 0.95."
+            )
+        display_curve(report.id, question, metrics, json_output)
+        return
+    gate: Gate | None
+    recommendation = None
+    if target_accuracy is not None:
+        recommendation = recommend_threshold(metrics, target_accuracy, conservative=conservative)
+        note = recommendation.note
+        gate = recommendation.recommended.gate if recommendation.recommended else None
+        if gate is None and save:
+            raise JevError(
+                "no_recommendation",
+                "No gate on these cases meets the target accuracy; nothing was saved.",
+                "Lower the target, add labeled cases, or improve the design.",
+            )
+    elif is_noul:
         if threshold is not None or no_below is None or yes_above is None:
             raise JevError(
                 "invalid_gate",
@@ -422,44 +621,95 @@ def tune_evaluation(
                 "invalid_gate", "Choice/Score use a confidence threshold.", "Pass --threshold 0.8."
             )
         gate = ConfidenceGate(automate_at_or_above=threshold)
-    stats = threshold_stats(report.evaluation.per_question[question], gate)
+    stats = threshold_stats(metrics, gate) if gate is not None else None
     data: dict[str, object] = {
         "job_id": report.id,
         "question": question,
-        "stats": stats.model_dump(mode="json"),
+        "stats": stats.model_dump(mode="json") if stats else None,
         "saved": False,
-        "note": "Empirical tuning on this dataset; verify on a separate holdout before deployment.",
+        "note": note,
     }
-    if save:
+    if recommendation is not None:
+        data["recommendation"] = recommendation.model_dump(mode="json")
+    if save and gate is not None:
         updated = service.save_thresholds(job_id, {question: gate}, template_reference=template)
         data.update(saved=True, template=updated.name)
     if json_output:
         emit(data)
-    else:
-        accuracy = f"{stats.accuracy:.2%}" if stats.accuracy is not None else "—"
-        console.print(
-            Text(
-                f"{question} · coverage {stats.coverage:.2%} · automated accuracy {accuracy}\n"
-                f"Automate {stats.automated:,}/{stats.total:,} · review {stats.review:,}\n"
-                f"{'Saved' if save else 'Preview only'} · {data['note']}"
-            )
+        return
+    if stats is None or gate is None:
+        console.print(Text(f"{question} · no recommendation\n{note}"))
+        return
+    accuracy = f"{stats.accuracy:.2%}" if stats.accuracy is not None else "—"
+    console.print(
+        Text(
+            (f"Recommended gate: {gate_text(gate)}\n" if recommendation else "")
+            + f"{question} · coverage {stats.coverage:.2%} · automated accuracy {accuracy} "
+            f"(95% interval {interval_text(stats.accuracy_interval)})\n"
+            f"Automate {stats.automated:,}/{stats.total:,} · review {stats.review:,}\n"
+            f"{'Saved' if save else 'Preview only; add --save to write it'} · {note}"
         )
+    )
+
+
+def gate_text(gate: Gate) -> str:
+    if isinstance(gate, NoulGate):
+        return f"--no-below {gate.no_at_or_below:g} --yes-above {gate.yes_at_or_above:g}"
+    return f"--threshold {gate.automate_at_or_above:g}"
+
+
+def display_curve(job_id: str, question: str, metrics: QuestionMetrics, machine: bool) -> None:
+    """Coverage versus automated accuracy across cutoffs; no API call."""
+    curve = threshold_curve(metrics, steps=11)
+    if machine:
+        emit(
+            {
+                "job_id": job_id,
+                "question": question,
+                "curve": [item.model_dump(mode="json") for item in curve],
+                "note": "Pick a gate with --target-accuracy or explicit values; no API call.",
+            }
+        )
+        return
+    table = Table("Gate", "Automated", "Coverage", "Accuracy", "95% interval", box=None)
+    for item in curve:
+        assert item.gate is not None
+        table.add_row(
+            gate_text(item.gate),
+            Text(f"{item.automated:,}/{item.total:,}", justify="right"),
+            Text(f"{item.coverage:.0%}", justify="right"),
+            Text(f"{item.accuracy:.1%}" if item.accuracy is not None else "—", justify="right"),
+            Text(interval_text(item.accuracy_interval), justify="right"),
+        )
+    console.print(table)
+    console.print(
+        Text(
+            "Choose a gate with --target-accuracy 0.95, or pass explicit values. "
+            "These numbers describe this dataset only."
+        )
+    )
 
 
 @guarded
 def batch(
     template: Annotated[str | None, typer.Argument()] = None,
-    input_path: Annotated[Path | None, typer.Option("--input")] = None,
-    output: Annotated[Path | None, typer.Option()] = None,
+    input_path: Annotated[
+        Path | None, typer.Option("--input", help="CSV or JSONL cases to run.")
+    ] = None,
+    output: Annotated[
+        Path | None, typer.Option(help="New JSONL file for one result per case.")
+    ] = None,
     resume: Annotated[
         str | None, typer.Option(help="Resume a saved job ID or unique prefix.")
     ] = None,
-    retry_failed: Annotated[bool, typer.Option("--retry-failed")] = False,
+    retry_failed: Annotated[
+        bool, typer.Option("--retry-failed", help="With --resume, repeat rows that failed.")
+    ] = False,
     retry_unknown: Annotated[
         bool, typer.Option("--retry-unknown", help="May repeat a remotely completed/billed call.")
     ] = False,
-    concurrency: Concurrency = 4,
-    rate: Rate = 2.0,
+    concurrency: Concurrency = DEFAULT_CONCURRENCY,
+    rate: Rate = DEFAULT_REQUESTS_PER_SECOND,
     yes: Yes = False,
     json_output: JsonFlag = False,
 ) -> None:
@@ -508,7 +758,6 @@ def batch(
         yes,
         json_output,
         wb=wb,
-        scope="batch",
     )
     with progress_display(json_output) as progress:
         task = progress.add_task("Running batch", total=plan.calls)
@@ -616,18 +865,9 @@ def compare_command(
     input_format = format or left_design.state.format
     if input_format not in ("text", "json"):
         raise JevError("invalid_format", "Unknown state format.", "Choose text or json.")
-    payload = (
-        sys.stdin.read(2_000_001)
-        if state == "-"
-        else read_text(Path(state).expanduser())
-        if state
-        else text or ""
+    parsed = parse_state_for(
+        left_design, read_state_payload(state, text, action="comparing"), input_format
     )
-    if len(payload.encode()) > 2_000_000:
-        raise JevError(
-            "state_too_large", "State exceeds the 2 MB import limit.", "Trim it before comparing."
-        )
-    parsed = parse_state(payload, input_format)
     plan = comparison_plan(wb, left_design, right_design, parsed)
     yes = authorize(
         plan.calls,
@@ -636,6 +876,7 @@ def compare_command(
         plan.requires_confirmation,
         yes,
         machine,
+        wb=wb,
     )
     report = asyncio.run(compare(wb, left_design, right_design, parsed, authorize_cost=yes))
     if machine:
@@ -656,3 +897,7 @@ def compare_command(
         display_comparison(report)
     if report.status != "completed":
         raise typer.Exit(4)
+
+
+# Everyday evaluation commands list first; offline evidence commands follow.
+register_regression(eval_app)

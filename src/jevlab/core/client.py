@@ -51,6 +51,11 @@ class Evaluator(Protocol):
 
 
 class SDKClient:
+    """One official async client; reusable across calls until closed.
+
+    Use it as an async context manager, or call aclose(), to release pooled connections.
+    """
+
     def __init__(
         self, key: str, settings: Settings, *, transport: httpx2.AsyncBaseTransport | None = None
     ) -> None:
@@ -59,7 +64,7 @@ class SDKClient:
         try:
             self.client = AsyncTypeSafeClient(
                 api_key=key,
-                base_url="https://api.typesafe.ai",
+                base_url=settings.base_url,
                 model=settings.model,
                 timeout=settings.timeout_seconds,
                 retry=RetryPolicy(max_retries=settings.max_retries),
@@ -79,19 +84,27 @@ class SDKClient:
                 details={"exception_type": type(error).__name__, "request_sent": False},
             ) from None
 
+    async def __aenter__(self) -> "SDKClient":
+        return self
+
+    async def __aexit__(self, *_exc: object) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        await self.client.aclose()
+
     async def evaluate(self, template: Template, state: JSONContent) -> Evaluation:
         try:
-            async with self.client as client:
-                response = await client.system_one(
-                    state=state, questions=template.questions, model=template.model
-                )
-                raw_http = response.raw_http_response
-                return Evaluation(
-                    response,
-                    cast(dict[str, object], redact_body(raw_http.json(), (self._key,))),
-                    redact_text(raw_http.headers.get("x-typesafe-request-id", ""), (self._key,))
-                    or None,
-                )
+            response = await self.client.system_one(
+                state=state, questions=template.questions, model=template.model
+            )
+            raw_http = response.raw_http_response
+            return Evaluation(
+                response,
+                cast(dict[str, object], redact_body(raw_http.json(), (self._key,))),
+                redact_text(raw_http.headers.get("x-typesafe-request-id", ""), (self._key,))
+                or None,
+            )
         except Exception as error:
             # This is the last boundary that knows the actual credential. Redact here,
             # before a provider can echo it into persistence, CLI JSON, or UI details.

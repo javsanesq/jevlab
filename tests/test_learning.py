@@ -136,7 +136,7 @@ async def test_failed_calls_do_not_inflate_accuracy(wb: Workbench) -> None:
 
 async def test_cost_gate_before_any_paid_call(wb: Workbench) -> None:
     item = lesson("1")
-    design = starter(item, "cost-exercise", "jev-latest")
+    design = starter(item, "cost-exercise", "jev-2.0.0")  # No verified price.
     evaluator = LabeledEvaluator(pattern(item.pattern).cases)
     assert exercise_plan(wb, item, design).requires_confirmation
     with pytest.raises(JevError, match="confirmation"):

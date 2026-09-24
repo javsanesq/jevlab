@@ -1,6 +1,6 @@
 [project]
 name = "jevlab"
-version = "0.10.0"
+version = "0.11.0"
 description = "A terminal workbench for TypeSafe Jev decisions"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -44,7 +44,17 @@ packages = ["src/jevlab"]
 "docs/GUIDE.md" = "jevlab/resources/GUIDE.md"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=1", "ruff", "pyright", "types-PyYAML", "langchain-core==1.6.3", "pydantic-ai-slim==2.46.0"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=1",
+    "ruff",
+    "pyright",
+    "types-PyYAML",
+    "langchain-core==1.6.3",
+    "pydantic-ai-slim==2.46.0",
+    "pytest-xdist>=3",
+    "pytest-timeout>=2",
+]
 
 [tool.ruff]
 line-length = 100
@@ -64,3 +74,5 @@ venv = ".venv"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = ["live: real billable TypeSafe API calls (explicit --live required)"]
+# A hung test (for example, an unexpected real server start) fails instead of stalling CI.
+timeout = 120

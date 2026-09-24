@@ -22,13 +22,17 @@ from jevlab.core.datasets import DatasetInfo, DatasetRow, inspect_dataset, iter_
 from jevlab.core.errors import JevError
 from jevlab.core.evaluation import EvalReport, evaluate_runs
 from jevlab.core.models import Gate, Run, StrictModel, Template
-from jevlab.core.pricing import price
-from jevlab.core.service import Workbench
+from jevlab.core.pricing import over_budget, price
+from jevlab.core.service import SharedEvaluator, Workbench
 from jevlab.core.storage import now
 from jevlab.core.templates import context_estimate, dump_template, parse_template, revision_hash
 
 JobKind = Literal["batch", "eval"]
 ItemStatus = Literal["pending", "running", "succeeded", "failed", "unknown"]
+# Jev answers in roughly 70–500 ms, so eight workers rarely wait on each other at
+# ten starts per second. The limiter halves its rate after a provider 429.
+DEFAULT_CONCURRENCY = 8
+DEFAULT_REQUESTS_PER_SECOND = 10.0
 
 
 class JobPlan(StrictModel):
@@ -91,6 +95,15 @@ class _RateLimiter:
         self.interval = 1 / rate
         self.next_start = 0.0
         self.lock = asyncio.Lock()
+
+    def back_off(self, retry_after_ms: object = None) -> None:
+        """Halve the start rate (down to one per 30 s) and honor a provider retry delay."""
+        self.interval = min(self.interval * 2, 30.0)
+        loop = asyncio.get_running_loop()
+        delay = self.interval
+        if isinstance(retry_after_ms, (int, float)) and math.isfinite(retry_after_ms):
+            delay = max(delay, min(float(retry_after_ms) / 1000, 60.0))
+        self.next_start = max(self.next_start, loop.time() + delay)
 
     async def wait(self, stop: asyncio.Event) -> bool:
         async with self.lock:
@@ -281,8 +294,7 @@ class BatchService:
             remaining_calls=remaining,
             estimated_input_tokens=tokens,
             estimated_cost_nanousd=cost,
-            requires_confirmation=cost is None
-            or cost / 1_000_000_000 > self.wb.settings.confirm_cost_usd,
+            requires_confirmation=over_budget(cost, self.wb.settings.confirm_cost_usd),
         )
         binding = {
             "dataset": {"path": info.path, "sha256": info.sha256},
@@ -298,6 +310,7 @@ class BatchService:
                 field: getattr(self.wb.settings, field)
                 for field in (
                     "credential_mode",
+                    "base_url",
                     "max_retries",
                     "timeout_seconds",
                     "deadline_seconds",
@@ -492,8 +505,8 @@ class BatchService:
         *,
         kind: JobKind = "batch",
         output: Path | None = None,
-        concurrency: int = 4,
-        requests_per_second: float = 2.0,
+        concurrency: int = DEFAULT_CONCURRENCY,
+        requests_per_second: float = DEFAULT_REQUESTS_PER_SECOND,
         authorize_cost: bool = False,
         expected_plan: JobPlan | None = None,
         evaluator: Evaluator | None = None,
@@ -568,6 +581,9 @@ class BatchService:
             iterator: Iterator[DatasetRow] = iter(())
             initialized = False
             limiter, stop = _RateLimiter(requests_per_second), asyncio.Event()
+            # One key lookup and one pooled HTTP client for every row in this job.
+            owned = SharedEvaluator(self.wb.settings) if evaluator is None else None
+            shared: Evaluator = owned or cast(Evaluator, evaluator)
             done = report.total - plan.remaining_calls
 
             async def worker() -> None:
@@ -589,9 +605,7 @@ class BatchService:
                     item.attempts += 1
                     self._item_save(report.id, item)
                     try:
-                        await self.wb.run(
-                            template, row.state, evaluator=evaluator, run_id=item.run_id
-                        )
+                        await self.wb.run(template, row.state, evaluator=shared, run_id=item.run_id)
                         item.status = "succeeded"
                     except asyncio.CancelledError:
                         item.status = "unknown"
@@ -605,6 +619,8 @@ class BatchService:
                         raise
                     except JevError as error:
                         item.status, item.error = "failed", error.as_dict()
+                        if error.code == "rate_limit":
+                            limiter.back_off((error.details or {}).get("retry_after_ms"))
                         if error.code in {
                             "authentication",
                             "permission",
@@ -696,6 +712,8 @@ class BatchService:
                 close = getattr(iterator, "close", None)
                 if callable(close):
                     close()
+                if owned is not None:
+                    await owned.aclose()
                 report.finished_at = now()
                 latencies = self._summarize(report, items)
                 # Save the durable outcome before secondary analysis or output can fail.

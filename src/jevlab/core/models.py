@@ -3,6 +3,7 @@
 import json
 import re
 from typing import Annotated, Literal, Self, cast
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from typesafe_sdk import Choice, JSONContent, Noul, Score
@@ -36,6 +37,29 @@ def validate_jev_model(value: str) -> str:
             "Use jev-latest or a pinned version such as jev-1.13.0."
         )
     return value
+
+
+DEFAULT_BASE_URL = "https://api.typesafe.ai"
+
+
+def validate_base_url(value: str) -> str:
+    """Accept an HTTPS API root, or plain HTTP only for a loopback test server."""
+    parsed = urlsplit(value.strip())
+    loopback = parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+    if (
+        not parsed.hostname
+        or parsed.scheme not in ("https", "http")
+        or (parsed.scheme == "http" and not loopback)
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "Use an https:// API root without credentials, a query or a fragment, such as "
+            f"{DEFAULT_BASE_URL}. Plain http:// is accepted only for localhost."
+        )
+    return value.strip().rstrip("/")
 
 
 class StateSpec(StrictModel):
@@ -119,21 +143,26 @@ class Template(StrictModel):
         return self
 
 
+RETIRED_SETTINGS = ("confirm_batch_cost", "confirm_eval_cost")
+
+
 class Settings(StrictModel):
     schema_version: Literal[1] = 1
     ui_mode: Literal["simple", "expert"] = "simple"
     tour_completed: bool = False
     model: str = "jev-1.13.0"
     credential_mode: Literal["keychain", "environment"] = "keychain"
+    # Explicit, persisted endpoint. TYPESAFE_BASE_URL is deliberately not inherited:
+    # an environment override could send the API key to an unexpected host.
+    base_url: str = DEFAULT_BASE_URL
     timeout_seconds: float = Field(default=10.0, gt=0, le=300)
     deadline_seconds: float = Field(default=45.0, gt=0, le=600)
     max_retries: int = Field(default=2, ge=0, le=5)
     retention_days: int = Field(default=90, ge=1)
     retention_bytes: int = Field(default=100_000_000, ge=1_000_000)
+    # One consent rule for every paid workflow: estimates above this budget, or
+    # without a verified price, need confirmation (interactive) or --yes (scripts).
     confirm_cost_usd: float = Field(default=1.0, ge=0)
-    # Human-terminal preferences only. Scripted jobs retain the cost budget gate.
-    confirm_batch_cost: bool = True
-    confirm_eval_cost: bool = True
     coach_provider: Literal["disabled", "anthropic", "openai"] = "disabled"
     # Retained as the selected-provider mirror for existing config/JSON consumers.
     coach_model: str = ""
@@ -147,12 +176,21 @@ class Settings(StrictModel):
     def check_model(cls, value: str) -> str:
         return validate_jev_model(value)
 
+    @field_validator("base_url")
+    @classmethod
+    def check_base_url(cls, value: str) -> str:
+        return validate_base_url(value)
+
     @model_validator(mode="before")
     @classmethod
     def migrate_coach_model(cls, value: object) -> object:
         if not isinstance(value, dict):
             return value
         data = dict(value)
+        # Retired in 0.11.0: confirm_cost_usd now governs every workflow. Older
+        # config files still load; the next save omits these keys.
+        for retired in RETIRED_SETTINGS:
+            data.pop(retired, None)
         provider = data.get("coach_provider", "disabled")
         legacy = data.get("coach_model")
         if provider in ("anthropic", "openai") and isinstance(legacy, str) and legacy.strip():

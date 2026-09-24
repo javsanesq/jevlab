@@ -120,10 +120,17 @@ async def test_credentials_resolve_once_before_pair_timers_start(
         assert wb.storage.history() == []
         return "offline-comparison-key", "environment"
 
-    def sdk_client(key: str, settings: Settings) -> Evaluator:
+    class Session:
+        async def __aenter__(self) -> Evaluator:
+            return evaluator
+
+        async def __aexit__(self, *_exc: object) -> None:
+            return None
+
+    def sdk_client(key: str, settings: Settings) -> Session:
         assert key == "offline-comparison-key"
         assert len(wb.storage.history()) == 2
-        return evaluator
+        return Session()
 
     monkeypatch.setattr("jevlab.core.compare.Credentials.resolve", resolve)
     monkeypatch.setattr("jevlab.core.compare.SDKClient", sdk_client)

@@ -78,10 +78,8 @@ async def test_learning_editor_grade_case_inspection_and_resume(
         assert isinstance(app.screen, TemplateEditor)
         await pilot.press("ctrl+s", "escape")
         assert isinstance(app.screen, LessonScreen)
-        await pilot.click("#grade-lesson")
-        await pilot.pause()
-        assert isinstance(app.screen, Confirm)
-        await pilot.click("#discard")
+        await pilot.click("#grade-lesson")  # Within the default budget: no dialog.
+        await app.workers.wait_for_complete()
         await pilot.pause(0.6)
         assert isinstance(app.screen, GradeScreen)
         assert app.screen.report is not None
@@ -131,7 +129,9 @@ async def test_coach_proposal_requires_editor_save(
         )
 
     monkeypatch.setattr(Coach, "design", proposed)
-    wb.update_settings(wb.settings.with_updates({"coach_provider": "openai"}))
+    wb.update_settings(
+        wb.settings.with_updates({"coach_provider": "openai", "confirm_cost_usd": 0})
+    )
     app = JevApp(wb, start="coach")
     async with app.run_test(size=(120, 42)) as pilot:
         assert isinstance(app.screen, CoachScreen)

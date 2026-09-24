@@ -3,50 +3,14 @@
 import sqlite3
 
 from pydantic import ValidationError
-from textual import on
-from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
-from textual.widgets import Button, Checkbox, Static
 
 from jevlab.core.errors import JevError
-from jevlab.core.pricing import format_cost
-from jevlab.core.spending import SpendEstimate, SpendScope
+from jevlab.core.pricing import format_cost, over_budget
+from jevlab.core.spending import SpendEstimate
 from jevlab.core.templates import validation_message
 from jevlab.presentation import human_error
 from jevlab.tui.base import WorkbenchScreen
 from jevlab.tui.dialogs import Confirm
-
-
-class JobCostConfirm(Confirm):
-    """A job-specific opt-out; cancelling never changes the saved preference."""
-
-    def __init__(self, message: str, *, scope: SpendScope, action: str) -> None:
-        super().__init__(message, accept_label=action, cancel_label="Cancel this request")
-        self.scope = scope
-        self.remember = False
-
-    def compose(self) -> ComposeResult:
-        label = "batch runs" if self.scope == "batch" else "evaluations"
-        with VerticalScroll(classes="dialog"):
-            yield Static(self.message, markup=False)
-            yield Checkbox(f"Don't ask again before {label}", id="remember-cost")
-            yield Static(
-                "Applies only after you start this job. Turn confirmations back on in Settings.",
-                classes="muted",
-            )
-            with Horizontal(classes="buttons"):
-                yield Button(self.cancel_label, id="keep", variant="primary")
-                yield Button(self.accept_label, id="discard")
-
-    @on(Checkbox.Changed, "#remember-cost")
-    def remember_changed(self, event: Checkbox.Changed) -> None:
-        self.remember = event.value
-
-    def action_help(self) -> None:
-        self.notify(
-            "Review the estimate before starting. The checkbox remembers this choice only "
-            "for this kind of job. Cancel or Esc sends no requests and saves no preference."
-        )
 
 
 async def confirm_spend(
@@ -55,16 +19,25 @@ async def confirm_spend(
     *,
     action: str = "Continue",
     detail: str = "",
-    scope: SpendScope | None = None,
 ) -> bool:
-    """Call from a Textual worker before dispatching any paid request."""
+    """Call from a Textual worker before dispatching any paid request.
+
+    Known estimates within the saved confirmation budget start immediately with a
+    short notice; unknown or larger estimates open a cancel-first dialog.
+    """
     if estimate.calls == 0:
         return True
-    preference = f"confirm_{scope}_cost" if scope else None
-    if preference and not getattr(screen.wb.settings, preference):
+    budget = screen.wb.settings.confirm_cost_usd
+    if not over_budget(estimate.estimate_nanousd, budget):
+        screen.notify(
+            f"{estimate.calls:,} request(s), estimated {format_cost(estimate.estimate_nanousd)} "
+            f"(within your ${budget:g} confirmation budget).",
+            timeout=4,
+        )
         return True
     price = (
-        f"Estimated cost: {format_cost(estimate.estimate_nanousd)} (US dollars)."
+        f"Estimated cost: {format_cost(estimate.estimate_nanousd)} (US dollars), above your "
+        f"${budget:g} confirmation budget."
         if estimate.estimate_nanousd is not None
         else "The cost is unknown because a price could not be verified."
     )
@@ -76,15 +49,8 @@ async def confirm_spend(
     if detail:
         message += f"\n\n{detail}"
     message += "\n\nContinue only if you want these requests to run."
-    dialog = (
-        JobCostConfirm(message, scope=scope, action=action)
-        if scope
-        else Confirm(message, accept_label=action, cancel_label="Cancel this request")
-    )
-    accepted = bool(await screen.app.push_screen_wait(dialog))
-    if accepted and preference and isinstance(dialog, JobCostConfirm) and dialog.remember:
-        screen.wb.update_settings(screen.wb.settings.with_updates({preference: False}))
-    return accepted
+    dialog = Confirm(message, accept_label=action, cancel_label="Cancel this request")
+    return bool(await screen.app.push_screen_wait(dialog))
 
 
 def flow_error(

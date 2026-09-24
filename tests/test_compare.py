@@ -79,12 +79,14 @@ async def test_comparison_partial_and_full_failures_retain_inspectable_history(
     assert all(item.value_delta is None for item in report.differences)
 
 
-async def test_alias_price_gate_blocks_calls_until_authorized(
+async def test_unpriced_model_gate_blocks_calls_until_authorized(
     wb: Workbench,
     design: Template,
 ) -> None:
     alias = fork_template(design, "variant")
     alias.model = "jev-latest"
+    assert comparison_plan(wb, design, alias, "Same input").estimated_cost_nanousd is not None
+    alias.model = "jev-2.0.0"
     fake = MockEvaluator()
     plan = comparison_plan(wb, design, alias, "Same input")
     assert plan.calls == 2 and plan.estimated_cost_nanousd is None
@@ -93,9 +95,9 @@ async def test_alias_price_gate_blocks_calls_until_authorized(
         await compare(wb, design, alias, "Same input", evaluator=fake)
     assert not fake.requests and not wb.storage.history()
     report = await compare(wb, design, alias, "Same input", authorize_cost=True, evaluator=fake)
-    assert report.right.requested_model == "jev-latest"
+    assert report.right.requested_model == "jev-2.0.0"
     assert report.right.resolved_model == "jev-1.13.0"
-    assert {request["model"] for request in fake.requests} == {"jev-latest", "jev-1.13.0"}
+    assert {request["model"] for request in fake.requests} == {"jev-2.0.0", "jev-1.13.0"}
     assert report.unknown_cost_runs == 0
 
 

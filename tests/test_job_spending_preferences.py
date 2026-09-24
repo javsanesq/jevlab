@@ -1,62 +1,63 @@
-"""Interactive job preferences never weaken unattended cost gates or single-run output."""
+"""One budget rule decides interactive prompts; unattended cost gates stay unchanged."""
 
-import asyncio
 import json
 from pathlib import Path
 
 import pytest
 from test_b_cli import evaluation, runner, spending, terminal, use_evaluator
 from test_phase3_tui import dataset, finish_job, mock_runs
-from textual.widgets import Button, Checkbox, Input
+from textual.widgets import Input
 
 from jevlab.cli.app import app
 from jevlab.cli.evaluation import authorize
-from jevlab.core.config import load_settings
+from jevlab.core.config import load_settings, save_settings
 from jevlab.core.errors import JevError
 from jevlab.core.jobs import BatchService
 from jevlab.core.models import Settings
+from jevlab.core.pricing import over_budget, price
 from jevlab.core.service import Workbench
-from jevlab.core.spending import SpendScope
 from jevlab.tui.app import JevApp
+from jevlab.tui.dialogs import Confirm
 from jevlab.tui.evaluation import EvalScreen, JobScreen
 from jevlab.tui.screens import SettingsScreen
-from jevlab.tui.spending import JobCostConfirm
 
 
-def test_existing_settings_keep_job_prompts_enabled() -> None:
-    settings = Settings.model_validate({"schema_version": 1})
-    assert settings.confirm_batch_cost and settings.confirm_eval_cost
+def test_retired_job_preferences_still_load_and_are_dropped_on_save(tmp_path: Path) -> None:
+    (tmp_path / "config.toml").write_text(
+        "schema_version = 1\nconfirm_batch_cost = false\nconfirm_eval_cost = true\n"
+    )
+    settings = load_settings(tmp_path)
+    assert settings.confirm_cost_usd == 1.0
+    save_settings(tmp_path, settings)
+    text = (tmp_path / "config.toml").read_text()
+    assert "confirm_batch_cost" not in text and "confirm_eval_cost" not in text
 
 
-@pytest.mark.parametrize("scope", ["batch", "eval"])
-def test_cli_remembers_only_accepted_scope(
-    scope: SpendScope, wb: Workbench, monkeypatch: pytest.MonkeyPatch
+def test_alias_estimates_use_the_rate_it_resolved_to_on_the_price_date() -> None:
+    pinned, _ = price("jev-1.13.0", 1_000)
+    alias, snapshot = price("jev-latest", 1_000)
+    assert alias == pinned == 42_000
+    assert snapshot["priced_as"] == "jev-1.13.0"
+    assert price("jev-9.9.9", 1_000)[0] is None
+    assert not over_budget(42_000, 1.0) and over_budget(42_000, 0) and over_budget(None, 100)
+
+
+def test_cli_within_budget_starts_without_prompt(
+    wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     terminal(monkeypatch)
-    answers = iter([True, True, False])
     prompts: list[str] = []
-
-    def respond(message: str, **_kwargs: object) -> bool:
-        prompts.append(message)
-        return next(answers)
-
-    monkeypatch.setattr(spending.typer, "confirm", respond)
-    assert authorize(1, 42, "Estimate only.", False, False, False, wb=wb, scope=scope)
-    settings = load_settings(wb.root)
-    assert getattr(settings, f"confirm_{scope}_cost") is False
-    other = "eval" if scope == "batch" else "batch"
-    assert getattr(settings, f"confirm_{other}_cost") is True
-    assert len(prompts) == 2 and "Don't ask again" in prompts[1]
-    assert authorize(5000, 100, "Estimate only.", False, False, False, wb=wb, scope=scope)
-    assert len(prompts) == 2  # Persisted choice skips only this interactive scope.
-    with pytest.raises(JevError, match="No request was sent"):
-        authorize(1, 42, "Estimate only.", False, False, False, wb=wb, scope=other)
-    assert len(prompts) == 3
+    monkeypatch.setattr(
+        spending.typer, "confirm", lambda message, **_kwargs: prompts.append(message)
+    )
+    assert authorize(1, 42, "Estimate only.", False, False, False, wb=wb)
+    assert authorize(5000, 999_999_999, "Estimate only.", False, False, False, wb=wb)
+    assert not prompts
 
 
-@pytest.mark.parametrize("scope", ["batch", "eval"])
-def test_cli_decline_never_remembers_and_yes_is_one_off(
-    scope: SpendScope, wb: Workbench, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("cost", [None, 1_000_000_001])
+def test_cli_unknown_or_over_budget_prompts_and_decline_sends_nothing(
+    cost: int | None, wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     terminal(monkeypatch)
     prompts: list[str] = []
@@ -67,28 +68,32 @@ def test_cli_decline_never_remembers_and_yes_is_one_off(
 
     monkeypatch.setattr(spending.typer, "confirm", decline)
     with pytest.raises(JevError, match="No request was sent"):
-        authorize(1, 42, "Estimate only.", False, False, False, wb=wb, scope=scope)
+        authorize(1, cost, "Estimate only.", True, False, False, wb=wb)
     assert len(prompts) == 1
-    assert authorize(1, 42, "Estimate only.", False, True, False, wb=wb, scope=scope)
-    assert len(prompts) == 1
-    assert getattr(load_settings(wb.root), f"confirm_{scope}_cost") is True
+    assert authorize(1, cost, "Estimate only.", True, True, False, wb=wb)
+    assert len(prompts) == 1  # --yes is a one-off authorization.
 
 
-@pytest.mark.parametrize("scope", ["batch", "eval"])
+def test_raised_budget_removes_prompt(wb: Workbench, monkeypatch: pytest.MonkeyPatch) -> None:
+    terminal(monkeypatch)
+    monkeypatch.setattr(spending.typer, "confirm", lambda *_args, **_kwargs: False)
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 5}))
+    assert authorize(1, 4_000_000_000, "Estimate only.", False, False, False, wb=wb)
+
+
 @pytest.mark.parametrize("machine", [False, True])
-def test_remembered_preference_never_bypasses_script_budget(
-    scope: SpendScope, machine: bool, wb: Workbench, monkeypatch: pytest.MonkeyPatch
+def test_unattended_budget_gate_still_requires_yes(
+    machine: bool, wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    wb.update_settings(wb.settings.with_updates({f"confirm_{scope}_cost": False}))
     monkeypatch.setattr(evaluation, "interactive", lambda machine=False: False)
     with pytest.raises(JevError, match="No calls were started"):
-        authorize(5000, None, "Unknown price.", True, False, machine, wb=wb, scope=scope)
-    assert authorize(5000, None, "Unknown price.", True, True, machine, wb=wb, scope=scope)
+        authorize(5000, None, "Unknown price.", True, False, machine, wb=wb)
+    assert authorize(5000, None, "Unknown price.", True, True, machine, wb=wb)
 
 
 @pytest.mark.parametrize("scope", ["batch", "eval"])
-def test_cli_job_yes_runs_once_without_disabling_future_prompts(
-    scope: SpendScope, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_cli_job_within_budget_runs_with_a_notice(
+    scope: str, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from conftest import MockEvaluator
 
@@ -102,22 +107,19 @@ def test_cli_job_yes_runs_once_without_disabling_future_prompts(
         if scope == "batch"
         else ["eval", "run", "support-triage", str(path)]
     )
-    result = runner.invoke(app, [*arguments, "--yes"])
+    result = runner.invoke(app, arguments)
     assert result.exit_code == 0, result.output
-    assert len(fake.requests) == 1 and "Estimated charge:" in result.stderr
-    assert "Continue and allow" not in result.stderr and "Don't ask again" not in result.stderr
-    assert getattr(load_settings(wb.root), f"confirm_{scope}_cost") is True
+    assert len(fake.requests) == 1 and "within your $1" in result.stderr
+    assert "Continue and allow" not in result.stderr
     assert len(BatchService(wb).list(kind=scope)) == 1
 
 
 @pytest.mark.parametrize("scope", ["batch", "eval"])
-def test_machine_job_with_remembered_preference_still_requires_yes(
-    scope: SpendScope, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_machine_job_over_budget_still_requires_yes(
+    scope: str, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = dataset(tmp_path)
-    wb.update_settings(
-        wb.settings.with_updates({f"confirm_{scope}_cost": False, "confirm_cost_usd": 0})
-    )
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
     monkeypatch.setattr(evaluation, "workbench", lambda: wb)
     arguments = (
         ["batch", "support-triage", "--input", str(path), "--output", str(tmp_path / "out.jsonl")]
@@ -129,13 +131,13 @@ def test_machine_job_with_remembered_preference_still_requires_yes(
     payload = json.loads(result.stdout)
     assert payload["schema_version"] == 1 and payload["ok"] is False
     assert payload["error"]["code"] == "cost_confirmation"
-    assert "Continue and allow" not in result.output and "Don't ask again" not in result.output
+    assert "Continue and allow" not in result.output
     assert len(wb.storage.history()) == 0
 
 
 @pytest.mark.parametrize("scope", ["batch", "eval"])
-async def test_tui_checked_cancel_keeps_prompt_but_checked_accept_persists(
-    scope: SpendScope, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+async def test_tui_prompts_only_above_budget(
+    scope: str, wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     evaluator = mock_runs(wb, monkeypatch)
     path = dataset(tmp_path)
@@ -147,52 +149,27 @@ async def test_tui_checked_cancel_keeps_prompt_but_checked_accept_persists(
         if scope == "batch":
             screen.query_one("#output-path", Input).value = str(tmp_path / "out.jsonl")
         await finish_job(app, pilot, screen.prepare(run=True), approve=False)
-        assert isinstance(app.screen, JobCostConfirm)  # Even this one-row file prompts.
-        # Mount queues focus through app.call_later, followed by a widget Focus event.
-        # A single pilot.pause() only drains events queued when its barrier started.
-        async with asyncio.timeout(5):
-            while not app.screen.query_one("#keep", Button).has_focus:
-                await pilot.pause()
-        assert app.screen.query_one("#keep", Button).has_focus
-        app.screen.query_one("#remember-cost", Checkbox).value = True
-        await pilot.click("#keep")
-        await app.workers.wait_for_complete()
-        assert not evaluator.requests
-        assert getattr(load_settings(wb.root), f"confirm_{scope}_cost") is True
-
-        await finish_job(app, pilot, screen.prepare(run=True), approve=False)
-        assert isinstance(app.screen, JobCostConfirm)
-        app.screen.query_one("#remember-cost", Checkbox).value = True
-        await pilot.click("#discard")
-        await app.workers.wait_for_complete()
-        await pilot.pause()
         assert isinstance(app.screen, EvalScreen), app.last_error
         assert len(evaluator.requests) == 1
-        saved = load_settings(wb.root)
-        assert getattr(saved, f"confirm_{scope}_cost") is False
-        other = "eval" if scope == "batch" else "batch"
-        assert getattr(saved, f"confirm_{other}_cost") is True
 
         await pilot.press("escape")
+        wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
         if scope == "batch":
             screen.query_one("#output-path", Input).value = str(tmp_path / "second.jsonl")
-        await screen.prepare(run=True).wait()
+        await finish_job(app, pilot, screen.prepare(run=True), approve=False)
+        assert isinstance(app.screen, Confirm)
+        await pilot.click("#keep")
         await app.workers.wait_for_complete()
-        await pilot.pause()
-        assert isinstance(app.screen, EvalScreen) and len(evaluator.requests) == 2
+        assert len(evaluator.requests) == 1
 
 
-async def test_settings_can_restore_both_scoped_prompts(wb: Workbench) -> None:
-    wb.update_settings(
-        wb.settings.with_updates({"confirm_batch_cost": False, "confirm_eval_cost": False})
-    )
+async def test_settings_screen_saves_confirmation_budget(wb: Workbench) -> None:
     app = JevApp(wb)
     async with app.run_test(size=(100, 40)) as pilot:
         settings = SettingsScreen(wb)
         app.push_screen(settings)
         await pilot.pause()
-        settings.query_one("#confirm-batch-cost", Checkbox).value = True
-        settings.query_one("#confirm-eval-cost", Checkbox).value = True
+        settings.query_one("#confirm-cost", Input).value = "2.5"
         await pilot.press("ctrl+s")
-        saved = load_settings(wb.root)
-        assert saved.confirm_batch_cost and saved.confirm_eval_cost
+        assert load_settings(wb.root).confirm_cost_usd == 2.5
+        assert Settings.model_validate({"confirm_cost_usd": "0"}).confirm_cost_usd == 0

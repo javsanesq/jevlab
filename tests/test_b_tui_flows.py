@@ -28,10 +28,16 @@ def simple(wb: Workbench) -> None:
     wb.update_settings(wb.settings.with_updates({"ui_mode": "simple", "tour_completed": True}))
 
 
+def ask_every_time(wb: Workbench) -> None:
+    """A zero budget makes every priced request ask, exercising the dialog itself."""
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
+
+
 @pytest.mark.parametrize("kind", ["batch", "eval"])
-async def test_job_cost_prompt_defaults_to_cancel_below_limit_at_small_terminal(
+async def test_job_cost_prompt_defaults_to_cancel_above_budget_at_small_terminal(
     wb: Workbench, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
+    ask_every_time(wb)
     simple(wb)
     evaluator = mock_runs(wb, monkeypatch)
     app = JevApp(wb, start=kind)
@@ -78,6 +84,7 @@ async def test_compare_unknown_cost_is_explained_and_cancellable(
 async def test_every_coach_mode_confirms_before_request(
     wb: Workbench, design: Template, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
+    ask_every_time(wb)
     simple(wb)
     wb.update_settings(wb.settings.with_updates({"coach_provider": "openai"}))
     target = "my-design" if mode == "design" else design.name
@@ -105,6 +112,7 @@ async def test_every_coach_mode_confirms_before_request(
 
 
 async def test_lesson_can_cancel_before_any_jev_call(wb: Workbench) -> None:
+    ask_every_time(wb)
     simple(wb)
     item = lesson("1")
     template = starter(item, f"lesson-{item.id}", wb.settings.model)
@@ -125,6 +133,7 @@ async def test_lesson_can_cancel_before_any_jev_call(wb: Workbench) -> None:
 async def test_optional_feedback_has_separate_confirmation_and_keeps_grade(
     wb: Workbench, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    ask_every_time(wb)
     simple(wb)
     wb.update_settings(wb.settings.with_updates({"coach_provider": "openai"}))
     item = lesson("1")
@@ -173,6 +182,7 @@ async def test_optional_feedback_has_separate_confirmation_and_keeps_grade(
 async def test_retrying_uncertain_rows_needs_separate_permission_before_price(
     wb: Workbench, design: Template, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    ask_every_time(wb)
     simple(wb)
     app = JevApp(wb, start="eval")
     async with app.run_test(size=(80, 24)) as pilot:
@@ -245,7 +255,7 @@ async def test_invalid_file_error_has_what_why_next(wb: Workbench, tmp_path: Pat
         screen.query_one("#dataset-path", Input).value = str(path)
         await screen.prepare().wait()
         message = str(screen.query_one("#job-status", Static).content)
-        assert all(text in message for text in ("What happened:", "Why:", "Next:"))
+        assert all(text in message for text in ("Error:", "Next:"))
         assert "Traceback" not in message
 
 
@@ -266,7 +276,8 @@ async def test_preview_worker_failure_surfaces_safely_and_restores_controls(
         monkeypatch.setattr(screen.service, "plan", fail)
         await screen.prepare().wait()
         message = str(screen.query_one("#job-status", Static).content)
-        assert "What happened:" in message and "jevlab doctor" in message
+        assert ("What happened:" in message or "Error:" in message) and "Next:" in message
+        assert "jevlab doctor" in message
         assert "secret" not in message and "secret" not in app.last_error
         assert "Details:" in app.last_error
         assert not screen.busy

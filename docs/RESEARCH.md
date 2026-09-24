@@ -226,6 +226,9 @@ No wire-contract change was needed; installed `typesafe-sdk==0.7.0` remains pinn
   explicitly described as changeable. The workbench defaults conservatively to
   two logical call starts/second and four workers; this is not a promise about
   the account's quota and does not limit SDK retries or token throughput.
+  *(0.11.0 update: defaults are now ten starts/second and eight workers, half the
+  published request limit, and a job halves its start rate after a 429; see D107.
+  These limits were not re-verified live for 0.11.0.)*
 - SDK retries/backoff remain authoritative for 429/529. No application retry
   loop is stacked around a single inference; retrying failed/uncertain dataset
   rows is an explicit resume action.

@@ -6,12 +6,12 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import closing
 from pathlib import Path
-from time import monotonic
 
 import pytest
 from conftest import MockEvaluator
 from typesafe_sdk import JSONContent
 
+from jevlab.core import jobs
 from jevlab.core.client import Evaluation
 from jevlab.core.datasets import DatasetRow, iter_dataset
 from jevlab.core.errors import JevError
@@ -95,7 +95,9 @@ async def test_cost_and_input_gates_make_no_api_calls(
     service = BatchService(wb)
     with pytest.raises(JevError, match="every question label"):
         await service.run(design, source, kind="eval", evaluator=evaluator)
-    design.model = "jev-latest"
+    design.model = "jev-latest"  # Aliases are estimated at their dated resolution.
+    assert not service.plan(design, source).requires_confirmation
+    design.model = "jev-2.0.0"  # A version without a verified price still needs consent.
     assert service.plan(design, source).requires_confirmation
     with pytest.raises(JevError, match="confirmation"):
         await service.run(design, source, evaluator=evaluator)
@@ -190,16 +192,26 @@ async def test_same_job_cannot_run_twice_concurrently(
 
 
 async def test_rate_spacing_and_worker_bound(
-    wb: Workbench, design: Template, tmp_path: Path
+    wb: Workbench, design: Template, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     starts: list[float] = []
     active = peak = 0
     delegate = MockEvaluator()
+    wait = jobs._RateLimiter.wait
+
+    async def granted(self: jobs._RateLimiter, stop: asyncio.Event) -> bool:
+        # Record the limiter's own grant time; a worker's later start includes
+        # scheduling jitter that parallel test runs make unpredictable.
+        allowed = await wait(self, stop)
+        if allowed:
+            starts.append(asyncio.get_running_loop().time())
+        return allowed
+
+    monkeypatch.setattr(jobs._RateLimiter, "wait", granted)
 
     class Measured:
         async def evaluate(self, template: Template, state: JSONContent) -> Evaluation:
             nonlocal active, peak
-            starts.append(monotonic())
             active += 1
             peak = max(peak, active)
             try:
@@ -211,7 +223,7 @@ async def test_rate_spacing_and_worker_bound(
     report = await BatchService(wb).run(
         design, dataset(tmp_path, 5), evaluator=Measured(), concurrency=2, requests_per_second=20
     )
-    assert report.status == "completed" and peak == 2
+    assert report.status == "completed" and peak == 2 and len(starts) == 5
     assert all(b - a >= 0.045 for a, b in zip(starts, starts[1:], strict=False))
 
 

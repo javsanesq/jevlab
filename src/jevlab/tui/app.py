@@ -51,8 +51,8 @@ class JevApp(App[None]):
                 surface="#11171f",
                 panel="#151d26",
                 success="#67d9e8",
-                warning="#c2c9d1",
-                error="#c2c9d1",
+                warning="#e5c07b",
+                error="#f08a8a",
                 dark=True,
             )
         )

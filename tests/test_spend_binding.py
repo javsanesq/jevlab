@@ -147,6 +147,7 @@ def test_cli_binds_confirmation_before_dispatch(
     spending = importlib.import_module("jevlab.cli.spending")
     path, output = tmp_path / "cases.jsonl", tmp_path / "result.jsonl"
     write_cases(path)
+    wb.update_settings(wb.settings.with_updates({"confirm_cost_usd": 0}))
     monkeypatch.setattr(commands, "workbench", lambda: wb)
     for module in (commands, spending):
         monkeypatch.setattr(module, "interactive", lambda machine=False: not machine)

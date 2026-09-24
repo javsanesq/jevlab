@@ -39,9 +39,28 @@ def _invalid(message: str, row: int | None = None) -> JevError:
     return JevError(
         "invalid_dataset",
         location + message,
-        "Use JSONL {id?, state, expected?} or CSV id,state,expected.<question>; "
-        "labels must match the template. See README dataset format.",
+        "Use JSONL {id?, state, expected?}, CSV id,state,expected.<question>, or CSV state "
+        "columns for a JSON template. See Dataset format in docs/REFERENCE.md.",
     )
+
+
+def _nested_state(columns: dict[str, str], index: int) -> dict[str, object]:
+    """Build a JSON object from CSV columns; dotted names such as ticket.message nest."""
+    state: dict[str, object] = {}
+    for name, value in columns.items():
+        parts = name.split(".")
+        if any(not part.strip() for part in parts):
+            raise _invalid(f"State column {name!r} has an empty name segment.", index)
+        target = state
+        for part in parts[:-1]:
+            child = target.setdefault(part, {})
+            if not isinstance(child, dict):
+                raise _invalid(f"State column {name!r} conflicts with column {part!r}.", index)
+            target = cast(dict[str, object], child)
+        if parts[-1] in target:
+            raise _invalid(f"State column {name!r} conflicts with another column.", index)
+        target[parts[-1]] = value
+    return state
 
 
 def _path(path: Path) -> tuple[Path, Literal["csv", "jsonl"]]:
@@ -100,15 +119,25 @@ def _rows(path: Path, format: str) -> Iterator[dict[str, object]]:
         header = next(reader, None)
         if header is None or not header or len(set(header)) != len(header):
             raise _invalid("CSV needs a unique header row.")
-        if "state" not in header or any(
-            name not in {"state", "id"} and not name.startswith("expected.") for name in header
-        ):
-            raise _invalid("CSV requires state; only id and expected.<question> may accompany it.")
+        state_columns = [
+            name for name in header if name != "id" and not name.startswith("expected.")
+        ]
+        if "state" in header and state_columns != ["state"]:
+            raise _invalid("With a state column, only id and expected.<question> may accompany it.")
+        if not state_columns:
+            raise _invalid("CSV needs a state column, or state columns for a JSON template.")
+        if any(name.lower().startswith("expected") for name in state_columns):
+            # A mistyped label column must not silently become model input.
+            raise _invalid("Label columns must be named expected.<question>, in lowercase.")
         for values in reader:
             if len(values) != len(header):
                 raise _invalid("CSV row width differs from its header.")
             record = dict(zip(header, values, strict=True))
-            row: dict[str, object] = {"state": record["state"]}
+            row: dict[str, object] = (
+                {"state": record["state"]}
+                if "state" in header
+                else {"_csv_state_columns": {name: record[name] for name in state_columns}}
+            )
             if "id" in record:
                 row["id"] = record["id"]
             row["expected"] = {
@@ -138,18 +167,28 @@ def _labels(
     for key, value in values.items():
         question = template.questions[key]
         if csv_input and isinstance(value, str):
-            if isinstance(question, Noul) and value in {"true", "false"}:
-                value = value == "true"
+            if isinstance(question, Noul) and value.lower() in {"true", "false"}:
+                value = value.lower() == "true"
             elif isinstance(question, Score) and re.fullmatch(r"0|[1-9][0-9]*", value):
                 value = int(value)
         if isinstance(question, Choice):
             if not isinstance(value, str) or value not in question.criteria:
-                raise _invalid(f"Label {key} must exactly match a Choice option.", index)
+                options = ", ".join(list(question.criteria)[:20])
+                more = " …" if len(question.criteria) > 20 else ""
+                raise _invalid(
+                    f"Label {key} must exactly match a Choice option (case-sensitive): "
+                    f"{options}{more}.",
+                    index,
+                )
         elif isinstance(question, Noul):
             if type(value) is not bool:
                 raise _invalid(f"Label {key} must be the boolean true or false.", index)
         elif type(value) is not int or not 0 <= cast(int, value) < len(question.criteria):
-            raise _invalid(f"Label {key} must be a zero-based integer Score level.", index)
+            raise _invalid(
+                f"Label {key} must be a zero-based integer Score level from 0 to "
+                f"{len(question.criteria) - 1}.",
+                index,
+            )
         labels[key] = cast(str | bool | int, value)
     return labels
 
@@ -174,7 +213,17 @@ def iter_dataset(
                 columns = cast(list[str], data.pop("_csv_label_columns"))
                 if set(columns) - set(template.questions):
                     raise _invalid("CSV has an unknown expected.<question> column.", index)
-                if template.state.format == "json":
+                if "_csv_state_columns" in data:
+                    if template.state.format != "json":
+                        raise _invalid(
+                            "Separate state columns need a JSON-format template. Use one "
+                            "state column for text.",
+                            index,
+                        )
+                    data["state"] = _nested_state(
+                        cast(dict[str, str], data.pop("_csv_state_columns")), index
+                    )
+                elif template.state.format == "json":
                     data["state"] = _json(cast(str, data["state"]))
             if set(data) - {"id", "state", "expected"}:
                 raise _invalid("Unknown row fields; allowed: id, state, expected.", index)
